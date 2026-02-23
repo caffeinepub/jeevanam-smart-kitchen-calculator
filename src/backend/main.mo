@@ -8,7 +8,9 @@ import Time "mo:core/Time";
 import Runtime "mo:core/Runtime";
 import Iter "mo:core/Iter";
 import Principal "mo:core/Principal";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   public type IngredientQuantity = {
     quantity : Float;
@@ -67,6 +69,7 @@ actor {
   let recipeProductionHistory = Map.empty<Text, Nat>();
   let productionHistoryCache = Map.empty<Text, ([Text], Nat)>();
   var adminId : ?Principal = null;
+  var isInitialized = false;
 
   let ingredientsList = List.empty<Ingredient>();
   let productionHistoryList = List.empty<(Text, Nat)>();
@@ -85,9 +88,17 @@ actor {
         };
       };
     };
+    isInitialized := true;
+  };
+
+  func checkInitialization() {
+    if (not isInitialized) {
+      Runtime.trap("System not initialized. Please complete admin setup.");
+    };
   };
 
   func verifyAdmin(caller : Principal) {
+    checkInitialization();
     switch (adminId) {
       case (?admin) {
         if (admin != caller) {
@@ -148,6 +159,7 @@ actor {
     totalPortionWeight : Float;
     ingredients : [Ingredient];
   } {
+    checkInitialization();
     switch (recipes.get(recipeName)) {
       case (?recipe) {
         let totalPortionWeight = recipe.portionWeight * quantity;
@@ -172,6 +184,7 @@ actor {
     productionQuantity : Float;
     ingredients : [Ingredient];
   } {
+    checkInitialization();
     switch (recipes.get(recipeName)) {
       case (?recipe) {
         let ingredients = recipe.ingredients.map(
@@ -195,6 +208,7 @@ actor {
   };
 
   public query ({ caller }) func calculateCost(recipeName : Text, quantity : Float) : async RecipeCostAnalysis {
+    checkInitialization();
     switch (recipes.get(recipeName)) {
       case (?recipe) {
         var totalCost = 0.0;
@@ -235,6 +249,7 @@ actor {
   };
 
   public query ({ caller }) func getDashboardStats() : async DashboardStats {
+    checkInitialization();
     let totalRecipes = recipes.size();
     let totalIngredients = getTotalIngredients();
     let mostProducedItem = getMostProducedItem();
@@ -303,6 +318,7 @@ actor {
   };
 
   public query ({ caller }) func getAllCategories() : async [Text] {
+    checkInitialization();
     let categoriesList = List.empty<Text>();
     for ((_, recipe) in recipes.entries()) {
       if (not categoriesList.contains(recipe.category)) {
@@ -313,6 +329,7 @@ actor {
   };
 
   public query ({ caller }) func getRecipesByCategory(category : Text) : async [Text] {
+    checkInitialization();
     let recipeNamesList = List.empty<Text>();
     for ((name, recipe) in recipes.entries()) {
       if (recipe.category == category) {
@@ -347,6 +364,7 @@ actor {
   };
 
   public query ({ caller }) func getAllRawMaterials() : async [RawMaterial] {
+    checkInitialization();
     rawMaterialsMap.values().toArray();
   };
 
@@ -387,6 +405,7 @@ actor {
   };
 
   public query ({ caller }) func getRawMaterial(id : Nat) : async ?RawMaterial {
+    checkInitialization();
     rawMaterialsMap.get(id);
   };
 };

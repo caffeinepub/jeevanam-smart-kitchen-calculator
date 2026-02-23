@@ -1,33 +1,62 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-23T11:34:31.429Z",
+  "generatedAt": "2026-02-23T11:48:47.452Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 1,
-    "implemented": 0,
+    "total": 3,
+    "implemented": 1,
     "items": [
       {
-        "id": "REQ-46",
-        "summary": "Fix the backend authentication check so that addRawMaterial, updateRawMaterial, and deleteRawMaterial functions properly recognize the authenticated admin principal instead of throwing 'Admin not set up yet' error",
+        "id": "REQ-1",
+        "summary": "Investigate and resolve the 'Service temporarily unavailable. The canister is stopped.' error that occurs when attempting raw material operations after deployment",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Add backend initialization checks and error recovery mechanisms to prevent canister停止 state during admin setup and raw material operations",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Improve frontend error handling to detect canister stopped errors and provide user-friendly guidance on next steps",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/RawMaterialForm.tsx",
+          "frontend/src/components/RawMaterialTable.tsx",
+          "frontend/src/pages/RawMaterialMaster.tsx",
+          "frontend/src/pages/Login.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/RawMaterialForm.tsx",
+          "frontend/src/components/RawMaterialTable.tsx",
+          "frontend/src/pages/RawMaterialMaster.tsx",
+          "frontend/src/pages/Login.tsx"
+        ]
       }
     ]
   },
   "changedFiles": [
     "backend/main.mo",
+    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
+    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
+    "frontend/src/components/RawMaterialForm.tsx",
+    "frontend/src/components/RawMaterialTable.tsx",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/Login.tsx",
+    "frontend/src/pages/RawMaterialMaster.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

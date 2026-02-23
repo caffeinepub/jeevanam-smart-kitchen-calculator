@@ -1,4 +1,27 @@
 {
   "kind": "feature_evidence_report",
-  "features": []
+  "features": [
+    {
+      "featureId": "feature-improve-frontend-error-handling-to-detect-canister-stopped-errors-and-provide-user-friendly-guidance-on-next-steps",
+      "featureTitle": "Improve frontend error handling to detect canister stopped errors and provide user-friendly guidance on next steps",
+      "files": [
+        "frontend/src/components/RawMaterialForm.tsx",
+        "frontend/src/components/RawMaterialTable.tsx",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/Login.tsx",
+        "frontend/src/pages/RawMaterialMaster.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
+      ],
+      "confidence": "high"
+    }
+  ]
 }

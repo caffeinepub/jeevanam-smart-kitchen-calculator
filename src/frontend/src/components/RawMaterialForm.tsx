@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { useAddRawMaterial, useEditRawMaterial, useGetAllRawMaterials } from '../hooks/useQueries';
+import { useAddRawMaterial, useEditRawMaterial, useGetAllRawMaterials, isCanisterStoppedError, getErrorMessage } from '../hooks/useQueries';
 import type { RawMaterial } from '../backend';
-import { Save, X } from 'lucide-react';
+import { Save, X, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface RawMaterialFormProps {
   editingRawMaterial: RawMaterial | null;
@@ -19,6 +20,8 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
   const [rawMaterialName, setRawMaterialName] = useState('');
   const [unitType, setUnitType] = useState('');
   const [pricePerUnit, setPricePerUnit] = useState('');
+  const [canisterError, setCanisterError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const { data: allRawMaterials = [] } = useGetAllRawMaterials();
   const addMutation = useAddRawMaterial();
@@ -34,10 +37,13 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
       setUnitType('');
       setPricePerUnit('');
     }
+    setCanisterError(null);
+    setRetryCount(0);
   }, [editingRawMaterial]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCanisterError(null);
 
     if (!rawMaterialName.trim()) {
       toast.error('Please enter a raw material name');
@@ -75,10 +81,10 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
           pricePerUnit: parseFloat(pricePerUnit),
         });
         toast.success('Raw material updated successfully');
-        // Only clear form on success
         setRawMaterialName('');
         setUnitType('');
         setPricePerUnit('');
+        setRetryCount(0);
         onSaveComplete();
       } else {
         await addMutation.mutateAsync({
@@ -87,42 +93,33 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
           pricePerUnit: parseFloat(pricePerUnit),
         });
         toast.success('Raw material added successfully');
-        // Only clear form on success
         setRawMaterialName('');
         setUnitType('');
         setPricePerUnit('');
+        setRetryCount(0);
         onSaveComplete();
       }
     } catch (error: any) {
-      // Enhanced error handling for IC0508 and other canister errors
-      let errorMessage = 'Failed to save raw material';
+      const errorMessage = getErrorMessage(error);
       
-      if (error?.message) {
-        const errorStr = error.message.toLowerCase();
-        
-        // Check for canister stopped error (IC0508)
-        if (errorStr.includes('ic0508') || errorStr.includes('canister') && errorStr.includes('stopped')) {
-          errorMessage = 'Service temporarily unavailable. The canister is stopped. Please try again in a moment.';
-        } 
-        // Check for other rejection errors
-        else if (errorStr.includes('reject')) {
-          errorMessage = 'Request was rejected by the service. Please try again.';
-        }
-        // Check for duplicate error from backend
-        else if (errorStr.includes('already exists')) {
-          errorMessage = 'Raw material with this name already exists';
-        }
-        // Use the original error message if it's user-friendly
-        else if (!errorStr.includes('actor') && !errorStr.includes('undefined')) {
-          errorMessage = error.message;
-        }
+      // Check if it's a canister stopped error
+      if (isCanisterStoppedError(error)) {
+        setCanisterError(errorMessage);
+        setRetryCount(prev => prev + 1);
+      } else {
+        toast.error(errorMessage);
       }
       
-      toast.error(errorMessage);
       console.error('Raw material save error:', error);
-      
-      // DO NOT clear form fields on error - preserve user input
-      // User can retry without re-entering data
+    }
+  };
+
+  const handleRetry = () => {
+    setCanisterError(null);
+    // Trigger form submission again
+    const form = document.querySelector('form');
+    if (form) {
+      form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
     }
   };
 
@@ -130,6 +127,8 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
     setRawMaterialName('');
     setUnitType('');
     setPricePerUnit('');
+    setCanisterError(null);
+    setRetryCount(0);
     onCancelEdit();
   };
 
@@ -150,6 +149,39 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
         </div>
       </CardHeader>
       <CardContent className="pt-6">
+        {canisterError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Service Temporarily Unavailable</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>{canisterError}</p>
+              <p className="text-sm">
+                The backend canister is currently stopped. This usually resolves automatically within a few moments.
+                {retryCount > 0 && ` (Retry attempt ${retryCount})`}
+              </p>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetry}
+                  disabled={isLoading}
+                  className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry Now
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCanisterError(null)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-6 md:grid-cols-3">
             <div className="space-y-2">
@@ -158,22 +190,27 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
                 id="rawMaterialName"
                 value={rawMaterialName}
                 onChange={(e) => setRawMaterialName(e.target.value)}
-                placeholder="e.g., Rice, Ghee, Salt"
+                placeholder="e.g., Wheat Flour"
                 disabled={isLoading}
-                className="bg-card"
+                className="border-[oklch(0.88_0.03_60)] focus:border-[oklch(0.62_0.15_35)] focus:ring-[oklch(0.62_0.15_35)]"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="unitType">Unit Type *</Label>
               <Select value={unitType} onValueChange={setUnitType} disabled={isLoading}>
-                <SelectTrigger id="unitType">
+                <SelectTrigger 
+                  id="unitType"
+                  className="border-[oklch(0.88_0.03_60)] focus:border-[oklch(0.62_0.15_35)] focus:ring-[oklch(0.62_0.15_35)]"
+                >
                   <SelectValue placeholder="Select unit" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Kg">Kg</SelectItem>
-                  <SelectItem value="Liter">Liter</SelectItem>
-                  <SelectItem value="Piece">Piece</SelectItem>
+                  <SelectItem value="Kg">Kilogram (Kg)</SelectItem>
+                  <SelectItem value="L">Liter (L)</SelectItem>
+                  <SelectItem value="g">Gram (g)</SelectItem>
+                  <SelectItem value="ml">Milliliter (ml)</SelectItem>
+                  <SelectItem value="Nos">Numbers (Nos)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -189,28 +226,38 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
                 onChange={(e) => setPricePerUnit(e.target.value)}
                 placeholder="0.00"
                 disabled={isLoading}
-                className="bg-card"
+                className="border-[oklch(0.88_0.03_60)] focus:border-[oklch(0.62_0.15_35)] focus:ring-[oklch(0.62_0.15_35)]"
               />
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end pt-4 border-t">
+          <div className="flex gap-3 justify-end">
             {editingRawMaterial && (
-              <Button type="button" variant="outline" onClick={handleCancel} disabled={isLoading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isLoading}
+                className="border-[oklch(0.88_0.03_60)] hover:bg-[oklch(0.95_0.02_60)]"
+              >
+                <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
             )}
             <Button
               type="submit"
               disabled={isLoading}
-              className="bg-gradient-to-r from-[oklch(0.62_0.15_35)] to-[oklch(0.55_0.18_30)] hover:from-[oklch(0.58_0.15_35)] hover:to-[oklch(0.51_0.18_30)] text-white"
+              className="bg-gradient-to-r from-[oklch(0.62_0.15_35)] to-[oklch(0.55_0.18_30)] hover:from-[oklch(0.58_0.15_35)] hover:to-[oklch(0.51_0.18_30)] text-white shadow-md"
             >
               {isLoading ? (
-                editingRawMaterial ? 'Updating...' : 'Saving...'
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  {editingRawMaterial ? 'Updating...' : 'Adding...'}
+                </>
               ) : (
                 <>
-                  <Save className="mr-2 h-4 w-4" />
-                  {editingRawMaterial ? 'Update' : 'Save'}
+                  <Save className="h-4 w-4 mr-2" />
+                  {editingRawMaterial ? 'Update' : 'Add'} Raw Material
                 </>
               )}
             </Button>

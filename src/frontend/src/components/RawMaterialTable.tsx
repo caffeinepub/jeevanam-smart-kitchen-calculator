@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,9 +14,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { useGetAllRawMaterials, useDeleteRawMaterial } from '../hooks/useQueries';
+import { useGetAllRawMaterials, useDeleteRawMaterial, isCanisterStoppedError, getErrorMessage } from '../hooks/useQueries';
 import type { RawMaterial } from '../backend';
 
 interface RawMaterialTableProps {
@@ -27,10 +28,12 @@ export default function RawMaterialTable({ onEdit }: RawMaterialTableProps) {
   const deleteMutation = useDeleteRawMaterial();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRawMaterial, setSelectedRawMaterial] = useState<RawMaterial | null>(null);
+  const [canisterError, setCanisterError] = useState<string | null>(null);
 
   const handleDeleteClick = (rawMaterial: RawMaterial) => {
     setSelectedRawMaterial(rawMaterial);
     setDeleteDialogOpen(true);
+    setCanisterError(null);
   };
 
   const handleDeleteConfirm = async () => {
@@ -41,9 +44,26 @@ export default function RawMaterialTable({ onEdit }: RawMaterialTableProps) {
       toast.success('Raw material deleted successfully');
       setDeleteDialogOpen(false);
       setSelectedRawMaterial(null);
+      setCanisterError(null);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete raw material');
+      const errorMessage = getErrorMessage(error);
+      
+      // Check if it's a canister stopped error
+      if (isCanisterStoppedError(error)) {
+        setCanisterError(errorMessage);
+        // Keep dialog open to show error and allow retry
+      } else {
+        toast.error(errorMessage);
+        setDeleteDialogOpen(false);
+      }
+      
+      console.error('Delete raw material error:', error);
     }
+  };
+
+  const handleRetryDelete = () => {
+    setCanisterError(null);
+    handleDeleteConfirm();
   };
 
   if (isLoading) {
@@ -129,21 +149,82 @@ export default function RawMaterialTable({ onEdit }: RawMaterialTableProps) {
       </Card>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="border-[oklch(0.88_0.03_60)]">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-[oklch(0.35_0.08_35)]">Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{selectedRawMaterial?.rawMaterialName}"? This action cannot be undone.
+            <AlertDialogTitle>
+              {canisterError ? 'Service Temporarily Unavailable' : 'Are you sure?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {canisterError ? (
+                  <>
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Cannot Complete Delete Operation</AlertTitle>
+                      <AlertDescription>
+                        <p className="mb-2">{canisterError}</p>
+                        <p className="text-sm">
+                          The backend canister is currently stopped. Please wait a moment and try again.
+                        </p>
+                      </AlertDescription>
+                    </Alert>
+                    <p className="text-sm text-muted-foreground">
+                      Your delete request for "{selectedRawMaterial?.rawMaterialName}" will be processed once the service is available.
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    This will permanently delete "{selectedRawMaterial?.rawMaterialName}". This action cannot be undone.
+                  </p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
+            {canisterError ? (
+              <>
+                <AlertDialogCancel onClick={() => {
+                  setCanisterError(null);
+                  setDeleteDialogOpen(false);
+                }}>
+                  Cancel
+                </AlertDialogCancel>
+                <Button
+                  onClick={handleRetryDelete}
+                  disabled={deleteMutation.isPending}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleteMutation.isPending ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Retrying...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry Delete
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteConfirm}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleteMutation.isPending ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete'
+                  )}
+                </AlertDialogAction>
+              </>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

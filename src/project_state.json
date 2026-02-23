@@ -4,21 +4,38 @@
   "summary": "New project",
   "architectural_notes": [],
   "known_issues": [
-    "Raw material addition shows 'Admin not set up yet' error"
+    "Error persists after Version 11 deployment (screenshot provided by user)"
   ],
   "isFixRequest": true,
-  "existing_features": [],
+  "existing_features": [
+    {
+      "id": "feature-improve-frontend-error-handling-to-detect-canister-stopped-errors-and-provide-user-friendly-guidance-on-next-steps",
+      "title": "Improve frontend error handling to detect canister stopped errors and provide user-friendly guidance on next steps",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    }
+  ],
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Fix the backend authentication check so that addRawMaterial, updateRawMaterial, and deleteRawMaterial functions properly recognize the authenticated admin principal instead of throwing 'Admin not set up yet' error",
+      "summary": "Investigate and resolve the 'Service temporarily unavailable. The canister is stopped.' error that occurs when attempting raw material operations after deployment",
       "reqIds": [
-        "REQ-46"
+        "REQ-1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Add backend initialization checks and error recovery mechanisms to prevent canister停止 state during admin setup and raw material operations",
+      "reqIds": [
+        "REQ-2"
       ],
       "status": "pending"
     }
   ],
-  "projectName": "Fix admin authentication for raw material operations",
+  "projectName": "Fix canister stopped error preventing raw material operations",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

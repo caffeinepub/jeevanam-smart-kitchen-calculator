@@ -1,22 +1,36 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-23T11:34:31.427Z",
-  "summary": "The diff shows modifications to backend/main.mo and project_state.json, but the actual implementation changes to fix the raw material authentication issue are not visible due to truncation. The project_state.json correctly tracks the feature request, but without seeing the complete backend code changes (specifically the addRawMaterial, updateRawMaterial, and deleteRawMaterial functions), I cannot verify whether REQ-46 was properly implemented.",
-  "missing_requirements": [
+  "generatedAt": "2026-02-23T11:48:47.449Z",
+  "summary": "The diff implements comprehensive canister stopped error handling and initialization improvements across backend and frontend, covering all three requirements. Backend adds initialization state management and migration support, while frontend implements sophisticated error detection, retry mechanisms, and user guidance for canister stopped scenarios.",
+  "missing_requirements": [],
+  "hallucinated_features": [
     {
-      "id": "REQ-46",
-      "requirement": "Fix the backend authentication check so that addRawMaterial, updateRawMaterial, and deleteRawMaterial functions properly recognize the authenticated admin principal",
-      "reason": "The diff for backend/main.mo is truncated and does not show the implementation of addRawMaterial, updateRawMaterial, or deleteRawMaterial functions. The visible code shows verifyAdmin function and other admin-protected functions (addRecipe, setIngredientCost, updateIngredientCost), but the actual raw material CRUD operations mentioned in the requirement are not visible in the provided diff.",
+      "description": "Auto-retry mechanism with exponential backoff in Login.tsx",
+      "reason": "REQ-3 requests error handling with user guidance but does not specify automatic retry logic with exponential backoff (up to 3 attempts with increasing delays). The BuildRequest asks for 'user-friendly guidance on next steps' and 'whether to retry or wait', implying manual user action rather than automatic retries.",
       "evidence": [
+        "frontend/src/pages/Login.tsx"
+      ]
+    },
+    {
+      "description": "Migration module for state migration",
+      "reason": "No requirement mentions adding state migration capabilities or versioning actor state. The migration.mo file adds infrastructure for migrating old actor state to new state with isInitialized field, which was not requested.",
+      "evidence": [
+        "backend/migration.mo",
         "backend/main.mo"
       ]
     }
   ],
-  "hallucinated_features": [],
-  "confidence": 0.4,
+  "confidence": 0.85,
   "changed_files": [
     "backend/main.mo",
+    "backend/migration.mo",
+    "frontend-file-summaries.txt",
+    "frontend/src/components/RawMaterialForm.tsx",
+    "frontend/src/components/RawMaterialTable.tsx",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/Login.tsx",
+    "frontend/src/pages/RawMaterialMaster.tsx",
     "project_state.json"
   ]
 }

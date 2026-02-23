@@ -35,6 +35,57 @@ const saveProductionHistory = (history: ProductionRecord[]) => {
   localStorage.setItem(PRODUCTION_HISTORY_KEY, JSON.stringify(history));
 };
 
+// Helper to detect canister stopped errors
+export function isCanisterStoppedError(error: any): boolean {
+  if (!error?.message) return false;
+  const errorStr = error.message.toLowerCase();
+  return errorStr.includes('ic0508') || 
+         (errorStr.includes('canister') && errorStr.includes('stopped')) ||
+         errorStr.includes('service temporarily unavailable');
+}
+
+// Helper to get user-friendly error message
+export function getErrorMessage(error: any): string {
+  if (!error?.message) return 'An unexpected error occurred';
+  
+  const errorStr = error.message.toLowerCase();
+  
+  if (isCanisterStoppedError(error)) {
+    return 'Service temporarily unavailable. The backend is currently stopped. Please wait a moment and try again.';
+  }
+  
+  if (errorStr.includes('admin not set up') || errorStr.includes('only the admin')) {
+    return 'Authentication error: Admin access not properly configured. Please log out and log back in.';
+  }
+  
+  if (errorStr.includes('reject')) {
+    return 'Request was rejected by the service. Please try again.';
+  }
+  
+  if (errorStr.includes('already exists')) {
+    return 'This item already exists';
+  }
+  
+  if (errorStr.includes('not found')) {
+    return 'Item not found';
+  }
+  
+  if (errorStr.includes('cannot be negative')) {
+    return 'Value cannot be negative';
+  }
+  
+  if (errorStr.includes('cannot be empty')) {
+    return 'Value cannot be empty';
+  }
+  
+  // Return original message if it's user-friendly
+  if (!errorStr.includes('actor') && !errorStr.includes('undefined')) {
+    return error.message;
+  }
+  
+  return 'An unexpected error occurred. Please try again.';
+}
+
 // Recipe queries
 export function useGetAllRecipes() {
   const { actor, isFetching } = useActor();
@@ -290,23 +341,23 @@ export function useAddRawMaterial() {
       console.error('Add raw material error details:', {
         message: error?.message,
         name: error?.name,
-        stack: error?.stack,
-        raw: error,
+        isCanisterStopped: isCanisterStoppedError(error),
+        friendlyMessage: getErrorMessage(error),
       });
     },
     retry: (failureCount, error: any) => {
-      // Retry logic for transient errors
-      const errorStr = error?.message?.toLowerCase() || '';
-      
       // Don't retry on validation errors or duplicate errors
+      const errorStr = error?.message?.toLowerCase() || '';
       if (errorStr.includes('already exists') || 
           errorStr.includes('cannot be negative') || 
-          errorStr.includes('cannot be empty')) {
+          errorStr.includes('cannot be empty') ||
+          errorStr.includes('admin not set up') ||
+          errorStr.includes('only the admin')) {
         return false;
       }
       
-      // Retry up to 2 times for canister stopped errors (IC0508)
-      if ((errorStr.includes('ic0508') || errorStr.includes('stopped')) && failureCount < 2) {
+      // Retry up to 3 times for canister stopped errors with exponential backoff
+      if (isCanisterStoppedError(error) && failureCount < 3) {
         return true;
       }
       
@@ -318,8 +369,8 @@ export function useAddRawMaterial() {
       return false;
     },
     retryDelay: (attemptIndex) => {
-      // Exponential backoff: 1s, 2s, 4s
-      return Math.min(1000 * Math.pow(2, attemptIndex), 4000);
+      // Exponential backoff: 2s, 4s, 8s for canister stopped errors
+      return Math.min(2000 * Math.pow(2, attemptIndex), 8000);
     },
   });
 }
@@ -350,8 +401,8 @@ export function useEditRawMaterial() {
       console.error('Edit raw material error details:', {
         message: error?.message,
         name: error?.name,
-        stack: error?.stack,
-        raw: error,
+        isCanisterStopped: isCanisterStoppedError(error),
+        friendlyMessage: getErrorMessage(error),
       });
     },
     retry: (failureCount, error: any) => {
@@ -360,11 +411,13 @@ export function useEditRawMaterial() {
       if (errorStr.includes('already exists') || 
           errorStr.includes('cannot be negative') || 
           errorStr.includes('cannot be empty') ||
-          errorStr.includes('not found')) {
+          errorStr.includes('not found') ||
+          errorStr.includes('admin not set up') ||
+          errorStr.includes('only the admin')) {
         return false;
       }
       
-      if ((errorStr.includes('ic0508') || errorStr.includes('stopped')) && failureCount < 2) {
+      if (isCanisterStoppedError(error) && failureCount < 3) {
         return true;
       }
       
@@ -375,7 +428,7 @@ export function useEditRawMaterial() {
       return false;
     },
     retryDelay: (attemptIndex) => {
-      return Math.min(1000 * Math.pow(2, attemptIndex), 4000);
+      return Math.min(2000 * Math.pow(2, attemptIndex), 8000);
     },
   });
 }
@@ -396,9 +449,31 @@ export function useDeleteRawMaterial() {
       console.error('Delete raw material error details:', {
         message: error?.message,
         name: error?.name,
-        stack: error?.stack,
-        raw: error,
+        isCanisterStopped: isCanisterStoppedError(error),
+        friendlyMessage: getErrorMessage(error),
       });
+    },
+    retry: (failureCount, error: any) => {
+      const errorStr = error?.message?.toLowerCase() || '';
+      
+      if (errorStr.includes('not found') ||
+          errorStr.includes('admin not set up') ||
+          errorStr.includes('only the admin')) {
+        return false;
+      }
+      
+      if (isCanisterStoppedError(error) && failureCount < 3) {
+        return true;
+      }
+      
+      if (errorStr.includes('reject') && failureCount < 1) {
+        return true;
+      }
+      
+      return false;
+    },
+    retryDelay: (attemptIndex) => {
+      return Math.min(2000 * Math.pow(2, attemptIndex), 8000);
     },
   });
 }
