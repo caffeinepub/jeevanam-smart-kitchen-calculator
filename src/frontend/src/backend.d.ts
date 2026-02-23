@@ -20,7 +20,7 @@ export interface RawMaterial {
 }
 export interface Ingredient {
     quantityPerPortion: number;
-    name: string;
+    rawMaterialId: bigint;
     unit: string;
 }
 export interface DashboardStats {
@@ -31,10 +31,7 @@ export interface DashboardStats {
 }
 export interface CostBreakdown {
     costPerUnit: number;
-    ingredient: string;
-    unit: string;
     totalCost: number;
-    quantity: number;
 }
 export interface backendInterface {
     addRawMaterial(rawMaterialName: string, unitType: string, pricePerUnit: number): Promise<void>;
@@ -57,7 +54,5 @@ export interface backendInterface {
         date: string;
         ingredients: Array<Ingredient>;
     }>;
-    setIngredientCost(ingredientName: string, costPerUnit: number, unit: string): Promise<void>;
     setupAdmin(): Promise<void>;
-    updateIngredientCost(ingredientName: string, newCostPerUnit: number): Promise<void>;
 }

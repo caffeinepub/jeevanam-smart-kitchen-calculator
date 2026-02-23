@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Edit, Save, X, Trash2 } from 'lucide-react';
-import { useGetAllRecipes, useSetIngredientCost, useUpdateIngredientCost } from '../hooks/useQueries';
+import { useGetAllRecipes, useGetAllRawMaterials } from '../hooks/useQueries';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 interface IngredientCostData {
+  rawMaterialId: string;
   name: string;
   costPerUnit: string;
   unit: string;
@@ -28,37 +29,46 @@ interface IngredientCostData {
 
 export default function IngredientCostForm() {
   const { data: recipes } = useGetAllRecipes();
-  const setIngredientCostMutation = useSetIngredientCost();
-  const updateIngredientCostMutation = useUpdateIngredientCost();
+  const { data: rawMaterials } = useGetAllRawMaterials();
   const [ingredientCosts, setIngredientCosts] = useState<IngredientCostData[]>([]);
 
-  const allIngredients = recipes
+  // Get unique raw material IDs from recipes
+  const uniqueRawMaterialIds = recipes
     ? Array.from(
         new Set(
           recipes.flatMap((recipe) =>
-            recipe.ingredients.map((ing) => ing.name)
+            recipe.ingredients.map((ing) => ing.rawMaterialId.toString())
           )
         )
-      ).sort()
+      )
     : [];
 
   useEffect(() => {
-    // Initialize ingredient costs from localStorage or create new entries
-    const storedCosts = localStorage.getItem('jeevanam_ingredient_costs');
-    const costs: Record<string, { cost: number; unit: string; lastUpdated: string }> = storedCosts
-      ? JSON.parse(storedCosts)
-      : {};
+    if (!rawMaterials || uniqueRawMaterialIds.length === 0) {
+      setIngredientCosts([]);
+      return;
+    }
 
-    const initialCosts = allIngredients.map((name) => ({
-      name,
-      costPerUnit: costs[name]?.cost?.toString() || '',
-      unit: costs[name]?.unit || 'kg',
-      lastUpdated: costs[name]?.lastUpdated || '',
-      isEditing: false,
-    }));
+    // Create ingredient costs from raw materials that are used in recipes
+    const costs = uniqueRawMaterialIds
+      .map((rawMaterialId) => {
+        const rawMaterial = rawMaterials.find(rm => rm.id.toString() === rawMaterialId);
+        if (!rawMaterial) return null;
 
-    setIngredientCosts(initialCosts);
-  }, [recipes]);
+        return {
+          rawMaterialId,
+          name: rawMaterial.rawMaterialName,
+          costPerUnit: rawMaterial.pricePerUnit > 0 ? rawMaterial.pricePerUnit.toString() : '',
+          unit: rawMaterial.unitType,
+          lastUpdated: '',
+          isEditing: false,
+        };
+      })
+      .filter((item): item is IngredientCostData => item !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    setIngredientCosts(costs);
+  }, [recipes, rawMaterials]);
 
   const handleEdit = (index: number) => {
     const updated = [...ingredientCosts];
@@ -87,51 +97,15 @@ export default function IngredientCostForm() {
       return;
     }
 
-    try {
-      // Check if this ingredient already has a cost set
-      const storedCosts = localStorage.getItem('jeevanam_ingredient_costs');
-      const costs = storedCosts ? JSON.parse(storedCosts) : {};
-      const isExisting = costs[ingredient.name];
-
-      if (isExisting) {
-        await updateIngredientCostMutation.mutateAsync({
-          ingredientName: ingredient.name,
-          newCostPerUnit: cost,
-        });
-      } else {
-        await setIngredientCostMutation.mutateAsync({
-          ingredientName: ingredient.name,
-          costPerUnit: cost,
-          unit: ingredient.unit,
-        });
-      }
-
-      const updated = [...ingredientCosts];
-      updated[index].isEditing = false;
-      updated[index].lastUpdated = new Date().toLocaleDateString();
-      setIngredientCosts(updated);
-
-      toast.success('Cost updated successfully');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update cost');
-    }
+    toast.info('Please update costs in the Raw Material Master page');
+    
+    const updated = [...ingredientCosts];
+    updated[index].isEditing = false;
+    setIngredientCosts(updated);
   };
 
   const handleClearAll = () => {
-    // Clear localStorage
-    localStorage.removeItem('jeevanam_ingredient_costs');
-    
-    // Reset state
-    const clearedCosts = allIngredients.map((name) => ({
-      name,
-      costPerUnit: '',
-      unit: 'kg',
-      lastUpdated: '',
-      isEditing: false,
-    }));
-    
-    setIngredientCosts(clearedCosts);
-    toast.success('All ingredient costs cleared');
+    toast.info('Please manage costs in the Raw Material Master page');
   };
 
   return (
@@ -148,16 +122,13 @@ export default function IngredientCostForm() {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogTitle>Manage in Raw Material Master</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will permanently delete all ingredient cost data. This action cannot be undone.
+                  Ingredient costs are now managed in the Raw Material Master page. Please go there to add, edit, or delete raw material costs.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Delete All
-                </AlertDialogAction>
+                <AlertDialogCancel>Close</AlertDialogCancel>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -166,21 +137,21 @@ export default function IngredientCostForm() {
       <CardContent className="pt-6">
         {ingredientCosts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <p>No ingredients found. Please add recipes first.</p>
+            <p>No ingredients found. Please add recipes and raw materials first.</p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="font-semibold">Ingredient Name</TableHead>
-                <TableHead className="font-semibold">Cost per Kg/L (₹)</TableHead>
-                <TableHead className="font-semibold">Last Updated</TableHead>
+                <TableHead className="font-semibold">Cost per Unit (₹)</TableHead>
+                <TableHead className="font-semibold">Unit</TableHead>
                 <TableHead className="text-right font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {ingredientCosts.map((ingredient, index) => (
-                <TableRow key={ingredient.name}>
+                <TableRow key={ingredient.rawMaterialId}>
                   <TableCell className="font-medium">{ingredient.name}</TableCell>
                   <TableCell>
                     {ingredient.isEditing ? (
@@ -199,16 +170,13 @@ export default function IngredientCostForm() {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {ingredient.lastUpdated ? new Date(ingredient.lastUpdated).toLocaleDateString() : '-'}
-                  </TableCell>
+                  <TableCell>{ingredient.unit}</TableCell>
                   <TableCell className="text-right">
                     {ingredient.isEditing ? (
                       <div className="flex justify-end gap-2">
                         <Button
                           size="sm"
                           onClick={() => handleSave(index)}
-                          disabled={setIngredientCostMutation.isPending || updateIngredientCostMutation.isPending}
                           className="bg-[oklch(0.65_0.12_140)] hover:bg-[oklch(0.60_0.10_150)] text-white"
                         >
                           <Save className="h-4 w-4" />
@@ -229,7 +197,7 @@ export default function IngredientCostForm() {
                         className="text-[oklch(0.65_0.12_140)] hover:text-[oklch(0.60_0.10_150)]"
                       >
                         <Edit className="h-4 w-4 mr-1" />
-                        Edit
+                        View
                       </Button>
                     )}
                   </TableCell>

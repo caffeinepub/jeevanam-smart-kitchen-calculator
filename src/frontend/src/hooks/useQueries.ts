@@ -93,35 +93,63 @@ export function useGetAllRecipes() {
   return useQuery<Recipe[]>({
     queryKey: ['recipes'],
     queryFn: async () => {
-      if (!actor) return [];
+      console.log('[useGetAllRecipes] Starting query, actor available:', !!actor);
       
-      // Get all categories from backend
-      const categories = await actor.getAllCategories();
-      const allRecipes: Recipe[] = [];
-      
-      // For each category, get recipes
-      for (const category of categories) {
-        const recipeNames = await actor.getRecipesByCategory(category);
-        
-        // For each recipe, get its details via calculateProduction with quantity 1
-        for (const recipeName of recipeNames) {
-          try {
-            const result = await actor.calculateProduction(recipeName, 1.0);
-            allRecipes.push({
-              name: recipeName,
-              category,
-              portionWeight: result.totalPortionWeight,
-              ingredients: result.ingredients,
-            });
-          } catch (error) {
-            console.error(`Failed to fetch recipe ${recipeName}:`, error);
-          }
-        }
+      if (!actor) {
+        console.warn('[useGetAllRecipes] Actor not available');
+        return [];
       }
       
-      return allRecipes;
+      try {
+        // Get all categories from backend
+        console.log('[useGetAllRecipes] Fetching categories...');
+        const categories = await actor.getAllCategories();
+        console.log('[useGetAllRecipes] Categories fetched:', categories);
+        
+        const allRecipes: Recipe[] = [];
+        
+        // For each category, get recipes
+        for (const category of categories) {
+          console.log(`[useGetAllRecipes] Fetching recipes for category: ${category}`);
+          const recipeNames = await actor.getRecipesByCategory(category);
+          console.log(`[useGetAllRecipes] Found ${recipeNames.length} recipes in ${category}`);
+          
+          // For each recipe, get its details via calculateProduction with quantity 1
+          for (const recipeName of recipeNames) {
+            try {
+              const result = await actor.calculateProduction(recipeName, 1.0);
+              allRecipes.push({
+                name: recipeName,
+                category,
+                portionWeight: result.totalPortionWeight,
+                ingredients: result.ingredients,
+              });
+            } catch (error) {
+              console.error(`[useGetAllRecipes] Failed to fetch recipe ${recipeName}:`, error);
+            }
+          }
+        }
+        
+        console.log(`[useGetAllRecipes] Successfully fetched ${allRecipes.length} recipes`);
+        return allRecipes;
+      } catch (error) {
+        console.error('[useGetAllRecipes] Error fetching recipes:', error);
+        throw error;
+      }
     },
     enabled: !!actor && !isFetching,
+    retry: (failureCount, error: any) => {
+      if (isCanisterStoppedError(error) && failureCount < 5) {
+        console.log(`[useGetAllRecipes] Retrying due to canister stopped error (attempt ${failureCount + 1})`);
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => {
+      const delay = Math.min(2000 * Math.pow(2, attemptIndex), 16000);
+      console.log(`[useGetAllRecipes] Retry delay: ${delay}ms`);
+      return delay;
+    },
   });
 }
 
@@ -134,7 +162,7 @@ export function useAddRecipe() {
       name: string;
       category: string;
       portionWeight: number;
-      ingredients: Array<{ name: string; quantityPerPortion: number; unit: string }>;
+      ingredients: Ingredient[];
     }) => {
       if (!actor) throw new Error('Actor not initialized');
       await actor.addRecipe(recipe.name, recipe.category, recipe.portionWeight, recipe.ingredients);
@@ -157,6 +185,13 @@ export function useGetAllCategories() {
       return actor.getAllCategories();
     },
     enabled: !!actor && !isFetching,
+    retry: (failureCount, error: any) => {
+      if (isCanisterStoppedError(error) && failureCount < 5) {
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(2000 * Math.pow(2, attemptIndex), 16000),
   });
 }
 
@@ -170,6 +205,13 @@ export function useGetRecipesByCategory(category: string) {
       return actor.getRecipesByCategory(category);
     },
     enabled: !!actor && !isFetching && !!category,
+    retry: (failureCount, error: any) => {
+      if (isCanisterStoppedError(error) && failureCount < 5) {
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(2000 * Math.pow(2, attemptIndex), 16000),
   });
 }
 
@@ -197,77 +239,33 @@ export function useGetStoreIssueSlip() {
   });
 }
 
-// Cost queries
-export function useSetIngredientCost() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      ingredientName,
-      costPerUnit,
-      unit,
-    }: {
-      ingredientName: string;
-      costPerUnit: number;
-      unit: string;
-    }) => {
-      if (!actor) throw new Error('Actor not initialized');
-      await actor.setIngredientCost(ingredientName, costPerUnit, unit);
-      
-      // Also save to localStorage for UI persistence
-      const storedCosts = localStorage.getItem('jeevanam_ingredient_costs');
-      const costs = storedCosts ? JSON.parse(storedCosts) : {};
-      costs[ingredientName] = {
-        cost: costPerUnit,
-        unit,
-        lastUpdated: new Date().toISOString(),
-      };
-      localStorage.setItem('jeevanam_ingredient_costs', JSON.stringify(costs));
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ingredientCosts'] });
-    },
-  });
-}
-
-export function useUpdateIngredientCost() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      ingredientName,
-      newCostPerUnit,
-    }: {
-      ingredientName: string;
-      newCostPerUnit: number;
-    }) => {
-      if (!actor) throw new Error('Actor not initialized');
-      await actor.updateIngredientCost(ingredientName, newCostPerUnit);
-      
-      // Also update localStorage
-      const storedCosts = localStorage.getItem('jeevanam_ingredient_costs');
-      const costs = storedCosts ? JSON.parse(storedCosts) : {};
-      if (costs[ingredientName]) {
-        costs[ingredientName].cost = newCostPerUnit;
-        costs[ingredientName].lastUpdated = new Date().toISOString();
-        localStorage.setItem('jeevanam_ingredient_costs', JSON.stringify(costs));
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ingredientCosts'] });
-    },
-  });
-}
-
+// Cost calculation
 export function useCalculateCost() {
   const { actor } = useActor();
 
   return useMutation({
     mutationFn: async ({ recipeName, quantity }: { recipeName: string; quantity: number }) => {
-      if (!actor) throw new Error('Actor not initialized');
-      return actor.calculateCost(recipeName, quantity);
+      console.log('[useCalculateCost] Starting cost calculation:', { recipeName, quantity });
+      
+      if (!actor) {
+        console.error('[useCalculateCost] Actor not initialized');
+        throw new Error('Actor not initialized');
+      }
+      
+      try {
+        console.log('[useCalculateCost] Calling backend calculateCost...');
+        const result = await actor.calculateCost(recipeName, quantity);
+        console.log('[useCalculateCost] Backend response:', result);
+        return result;
+      } catch (error) {
+        console.error('[useCalculateCost] Error calculating cost:', {
+          error,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          recipeName,
+          quantity
+        });
+        throw error;
+      }
     },
   });
 }
@@ -290,6 +288,18 @@ export function useGetDashboardStats() {
       return actor.getDashboardStats();
     },
     enabled: !!actor && !isFetching,
+    retry: (failureCount, error: any) => {
+      if (isCanisterStoppedError(error) && failureCount < 5) {
+        console.log(`[useGetDashboardStats] Retrying due to canister stopped error (attempt ${failureCount + 1})`);
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => {
+      const delay = Math.min(2000 * Math.pow(2, attemptIndex), 16000);
+      console.log(`[useGetDashboardStats] Retry delay: ${delay}ms`);
+      return delay;
+    },
   });
 }
 
@@ -309,10 +319,53 @@ export function useGetAllRawMaterials() {
   return useQuery<RawMaterial[]>({
     queryKey: ['rawMaterials'],
     queryFn: async () => {
-      if (!actor) return [];
-      return actor.getAllRawMaterials();
+      console.log('[useGetAllRawMaterials] Starting query, actor available:', !!actor);
+      
+      if (!actor) {
+        console.warn('[useGetAllRawMaterials] Actor not available');
+        return [];
+      }
+      
+      try {
+        console.log('[useGetAllRawMaterials] Fetching raw materials from backend...');
+        const rawMaterials = await actor.getAllRawMaterials();
+        console.log('[useGetAllRawMaterials] Successfully fetched raw materials:', rawMaterials);
+        console.log('[useGetAllRawMaterials] Raw materials count:', rawMaterials.length);
+        
+        // Log each raw material for debugging
+        rawMaterials.forEach((rm, index) => {
+          console.log(`[useGetAllRawMaterials] Raw Material ${index + 1}:`, {
+            id: rm.id.toString(),
+            name: rm.rawMaterialName,
+            unitType: rm.unitType,
+            pricePerUnit: rm.pricePerUnit
+          });
+        });
+        
+        return rawMaterials;
+      } catch (error) {
+        console.error('[useGetAllRawMaterials] Error fetching raw materials:', {
+          error,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          isCanisterStopped: isCanisterStoppedError(error)
+        });
+        throw error;
+      }
     },
     enabled: !!actor && !isFetching,
+    retry: (failureCount, error: any) => {
+      // Retry up to 5 times for canister stopped errors
+      if (isCanisterStoppedError(error) && failureCount < 5) {
+        console.log(`[useGetAllRawMaterials] Retrying due to canister stopped error (attempt ${failureCount + 1})`);
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => {
+      const delay = Math.min(2000 * Math.pow(2, attemptIndex), 16000);
+      console.log(`[useGetAllRawMaterials] Retry delay: ${delay}ms`);
+      return delay;
+    },
   });
 }
 
@@ -338,7 +391,7 @@ export function useAddRawMaterial() {
     },
     onError: (error: any) => {
       // Enhanced error logging for debugging
-      console.error('Add raw material error details:', {
+      console.error('[useAddRawMaterial] Error details:', {
         message: error?.message,
         name: error?.name,
         isCanisterStopped: isCanisterStoppedError(error),
@@ -356,8 +409,8 @@ export function useAddRawMaterial() {
         return false;
       }
       
-      // Retry up to 3 times for canister stopped errors with exponential backoff
-      if (isCanisterStoppedError(error) && failureCount < 3) {
+      // Retry up to 5 times for canister stopped errors with exponential backoff
+      if (isCanisterStoppedError(error) && failureCount < 5) {
         return true;
       }
       
@@ -369,8 +422,8 @@ export function useAddRawMaterial() {
       return false;
     },
     retryDelay: (attemptIndex) => {
-      // Exponential backoff: 2s, 4s, 8s for canister stopped errors
-      return Math.min(2000 * Math.pow(2, attemptIndex), 8000);
+      // Exponential backoff: 2s, 4s, 8s, 16s for canister stopped errors
+      return Math.min(2000 * Math.pow(2, attemptIndex), 16000);
     },
   });
 }
@@ -398,7 +451,7 @@ export function useEditRawMaterial() {
       queryClient.invalidateQueries({ queryKey: ['rawMaterials'] });
     },
     onError: (error: any) => {
-      console.error('Edit raw material error details:', {
+      console.error('[useEditRawMaterial] Error details:', {
         message: error?.message,
         name: error?.name,
         isCanisterStopped: isCanisterStoppedError(error),
@@ -417,7 +470,7 @@ export function useEditRawMaterial() {
         return false;
       }
       
-      if (isCanisterStoppedError(error) && failureCount < 3) {
+      if (isCanisterStoppedError(error) && failureCount < 5) {
         return true;
       }
       
@@ -428,7 +481,7 @@ export function useEditRawMaterial() {
       return false;
     },
     retryDelay: (attemptIndex) => {
-      return Math.min(2000 * Math.pow(2, attemptIndex), 8000);
+      return Math.min(2000 * Math.pow(2, attemptIndex), 16000);
     },
   });
 }
@@ -446,7 +499,7 @@ export function useDeleteRawMaterial() {
       queryClient.invalidateQueries({ queryKey: ['rawMaterials'] });
     },
     onError: (error: any) => {
-      console.error('Delete raw material error details:', {
+      console.error('[useDeleteRawMaterial] Error details:', {
         message: error?.message,
         name: error?.name,
         isCanisterStopped: isCanisterStoppedError(error),
@@ -462,7 +515,7 @@ export function useDeleteRawMaterial() {
         return false;
       }
       
-      if (isCanisterStoppedError(error) && failureCount < 3) {
+      if (isCanisterStoppedError(error) && failureCount < 5) {
         return true;
       }
       
@@ -473,7 +526,7 @@ export function useDeleteRawMaterial() {
       return false;
     },
     retryDelay: (attemptIndex) => {
-      return Math.min(2000 * Math.pow(2, attemptIndex), 8000);
+      return Math.min(2000 * Math.pow(2, attemptIndex), 16000);
     },
   });
 }

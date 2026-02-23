@@ -29,7 +29,7 @@ interface RecipeMasterFormProps {
     name: string;
     category: string;
     portionWeight: number;
-    ingredients: Array<{ name: string; quantity: number; unit: string }>;
+    ingredients: Array<{ rawMaterialId: bigint; quantity: number; unit: string }>;
   } | null;
   onClose: () => void;
 }
@@ -51,17 +51,17 @@ export default function RecipeMasterForm({ editingRecipe, onClose }: RecipeMaste
       setCategory(editingRecipe.category);
       setPortionWeight(editingRecipe.portionWeight.toString());
       
-      // Map ingredient names to raw material IDs
+      // Map ingredient rawMaterialIds to raw material data
       setIngredients(
         editingRecipe.ingredients.map((ing) => {
-          // Find the raw material by name
+          // Find the raw material by ID
           const matchingRawMaterial = rawMaterials.find(
-            rm => rm.rawMaterialName === ing.name
+            rm => rm.id === ing.rawMaterialId
           );
           
           return {
-            rawMaterialId: matchingRawMaterial ? matchingRawMaterial.id.toString() : '',
-            name: ing.name,
+            rawMaterialId: ing.rawMaterialId.toString(),
+            name: matchingRawMaterial?.rawMaterialName || '',
             quantity: ing.quantity.toString(),
             unit: ing.unit || 'g',
           };
@@ -103,7 +103,7 @@ export default function RecipeMasterForm({ editingRecipe, onClose }: RecipeMaste
       return;
     }
 
-    const validIngredients = ingredients.filter((ing) => ing.name && ing.quantity);
+    const validIngredients = ingredients.filter((ing) => ing.rawMaterialId && ing.quantity);
     if (validIngredients.length === 0) {
       toast.error('Please add at least one ingredient');
       return;
@@ -115,7 +115,7 @@ export default function RecipeMasterForm({ editingRecipe, onClose }: RecipeMaste
         category,
         portionWeight: parseFloat(portionWeight),
         ingredients: validIngredients.map((ing) => ({
-          name: ing.name,
+          rawMaterialId: BigInt(ing.rawMaterialId),
           quantityPerPortion: parseFloat(ing.quantity),
           unit: ing.unit,
         })),

@@ -1,43 +1,6 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix canister stopped error preventing raw material operations",
-  "requirements": [
-    {
-      "id": "REQ-3",
-      "summary": "Improve frontend error handling to detect canister stopped errors and provide user-friendly guidance on next steps",
-      "acceptanceCriteria": [
-        "Frontend displays clear error message when canister is stopped",
-        "User receives guidance on whether to retry or wait",
-        "Error state does not leave UI in broken state"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Add canister-specific error detection in mutation error handlers for raw material operations (addRawMaterialMutation, editRawMaterialMutation, deleteRawMaterialMutation). Detect 'canister is stopped' error messages and set a specific error state that includes user-friendly guidance. Ensure mutations handle these errors gracefully without breaking the UI state."
-        },
-        {
-          "path": "frontend/src/components/RawMaterialForm.tsx",
-          "operation": "modify",
-          "description": "Enhance error handling to detect canister stopped errors from the mutation hooks. Display a user-friendly error message using the Alert component explaining that the canister is temporarily unavailable and providing guidance to wait a moment before retrying. Include a retry button that allows users to resubmit the form after waiting."
-        },
-        {
-          "path": "frontend/src/components/RawMaterialTable.tsx",
-          "operation": "modify",
-          "description": "Add canister stopped error detection in the delete and edit operations. When a canister stopped error occurs, display a prominent Alert message explaining the temporary unavailability and suggesting the user wait before retrying. Ensure the table remains functional and doesn't enter a broken state when these errors occur."
-        },
-        {
-          "path": "frontend/src/pages/RawMaterialMaster.tsx",
-          "operation": "modify",
-          "description": "Add a global error banner that displays canister status errors at the page level. When canister stopped errors are detected from any child component (form or table), show a dismissible Alert at the top of the page with clear guidance on next steps. Ensure the error doesn't prevent the page from rendering or leave components in an inconsistent state."
-        },
-        {
-          "path": "frontend/src/pages/Login.tsx",
-          "operation": "modify",
-          "description": "Add canister stopped error detection in the admin setup flow. If setupAdmin() fails due to canister being stopped, display a specific error message explaining the backend is temporarily unavailable and provide guidance to wait before attempting login again. Include an automatic retry mechanism with exponential backoff."
-        }
-      ]
-    }
-  ]
+  "title": "Fix Internet Identity canister stopped error on login",
+  "requirements": []
 }

@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { useAddRawMaterial, useEditRawMaterial, useGetAllRawMaterials, isCanisterStoppedError, getErrorMessage } from '../hooks/useQueries';
 import type { RawMaterial } from '../backend';
-import { Save, X, AlertCircle, RefreshCw } from 'lucide-react';
+import { Save, X, AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 
 interface RawMaterialFormProps {
   editingRawMaterial: RawMaterial | null;
@@ -22,6 +22,7 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
   const [pricePerUnit, setPricePerUnit] = useState('');
   const [canisterError, setCanisterError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isAutoRetrying, setIsAutoRetrying] = useState(false);
 
   const { data: allRawMaterials = [] } = useGetAllRawMaterials();
   const addMutation = useAddRawMaterial();
@@ -39,11 +40,13 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
     }
     setCanisterError(null);
     setRetryCount(0);
+    setIsAutoRetrying(false);
   }, [editingRawMaterial]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCanisterError(null);
+    setIsAutoRetrying(false);
 
     if (!rawMaterialName.trim()) {
       toast.error('Please enter a raw material name');
@@ -106,6 +109,17 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
       if (isCanisterStoppedError(error)) {
         setCanisterError(errorMessage);
         setRetryCount(prev => prev + 1);
+        
+        // Automatic retry with exponential backoff (up to 5 attempts)
+        if (retryCount < 5) {
+          setIsAutoRetrying(true);
+          const delay = Math.min(2000 * Math.pow(2, retryCount), 16000);
+          
+          setTimeout(() => {
+            console.log(`[RawMaterialForm] Auto-retrying after ${delay}ms (attempt ${retryCount + 1}/5)`);
+            handleSubmit(e);
+          }, delay);
+        }
       } else {
         toast.error(errorMessage);
       }
@@ -116,6 +130,7 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
 
   const handleRetry = () => {
     setCanisterError(null);
+    setIsAutoRetrying(false);
     // Trigger form submission again
     const form = document.querySelector('form');
     if (form) {
@@ -129,6 +144,7 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
     setPricePerUnit('');
     setCanisterError(null);
     setRetryCount(0);
+    setIsAutoRetrying(false);
     onCancelEdit();
   };
 
@@ -156,15 +172,21 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
             <AlertDescription className="space-y-3">
               <p>{canisterError}</p>
               <p className="text-sm">
-                The backend canister is currently stopped. This usually resolves automatically within a few moments.
-                {retryCount > 0 && ` (Retry attempt ${retryCount})`}
+                The backend canister is currently stopped. This usually resolves automatically during deployment or system recovery.
+                {retryCount > 0 && ` (Retry attempt ${retryCount}/5)`}
               </p>
+              {isAutoRetrying && (
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Automatically retrying...</span>
+                </div>
+              )}
               <div className="flex gap-2 mt-3">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleRetry}
-                  disabled={isLoading}
+                  disabled={isLoading || isAutoRetrying}
                   className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
@@ -173,7 +195,11 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setCanisterError(null)}
+                  onClick={() => {
+                    setCanisterError(null);
+                    setIsAutoRetrying(false);
+                  }}
+                  disabled={isAutoRetrying}
                 >
                   Dismiss
                 </Button>
@@ -190,7 +216,7 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
                 id="rawMaterialName"
                 value={rawMaterialName}
                 onChange={(e) => setRawMaterialName(e.target.value)}
-                placeholder="e.g., Wheat Flour"
+                placeholder="e.g., Rice"
                 disabled={isLoading}
                 className="border-[oklch(0.88_0.03_60)] focus:border-[oklch(0.62_0.15_35)] focus:ring-[oklch(0.62_0.15_35)]"
               />
@@ -251,7 +277,7 @@ export default function RawMaterialForm({ editingRawMaterial, onCancelEdit, onSa
             >
               {isLoading ? (
                 <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   {editingRawMaterial ? 'Updating...' : 'Adding...'}
                 </>
               ) : (

@@ -10,15 +10,12 @@ import { IDL } from '@icp-sdk/core/candid';
 
 export const Ingredient = IDL.Record({
   'quantityPerPortion' : IDL.Float64,
-  'name' : IDL.Text,
+  'rawMaterialId' : IDL.Nat,
   'unit' : IDL.Text,
 });
 export const CostBreakdown = IDL.Record({
   'costPerUnit' : IDL.Float64,
-  'ingredient' : IDL.Text,
-  'unit' : IDL.Text,
   'totalCost' : IDL.Float64,
-  'quantity' : IDL.Float64,
 });
 export const RecipeCostAnalysis = IDL.Record({
   'breakdown' : IDL.Vec(CostBreakdown),
@@ -83,9 +80,7 @@ export const idlService = IDL.Service({
       ],
       ['query'],
     ),
-  'setIngredientCost' : IDL.Func([IDL.Text, IDL.Float64, IDL.Text], [], []),
   'setupAdmin' : IDL.Func([], [], []),
-  'updateIngredientCost' : IDL.Func([IDL.Text, IDL.Float64], [], []),
 });
 
 export const idlInitArgs = [];
@@ -93,15 +88,12 @@ export const idlInitArgs = [];
 export const idlFactory = ({ IDL }) => {
   const Ingredient = IDL.Record({
     'quantityPerPortion' : IDL.Float64,
-    'name' : IDL.Text,
+    'rawMaterialId' : IDL.Nat,
     'unit' : IDL.Text,
   });
   const CostBreakdown = IDL.Record({
     'costPerUnit' : IDL.Float64,
-    'ingredient' : IDL.Text,
-    'unit' : IDL.Text,
     'totalCost' : IDL.Float64,
-    'quantity' : IDL.Float64,
   });
   const RecipeCostAnalysis = IDL.Record({
     'breakdown' : IDL.Vec(CostBreakdown),
@@ -170,9 +162,7 @@ export const idlFactory = ({ IDL }) => {
         ],
         ['query'],
       ),
-    'setIngredientCost' : IDL.Func([IDL.Text, IDL.Float64, IDL.Text], [], []),
     'setupAdmin' : IDL.Func([], [], []),
-    'updateIngredientCost' : IDL.Func([IDL.Text, IDL.Float64], [], []),
   });
 };
 

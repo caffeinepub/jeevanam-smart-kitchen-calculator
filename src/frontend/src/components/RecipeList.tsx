@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Edit, Trash2, Package } from 'lucide-react';
-import { useGetAllRecipes } from '../hooks/useQueries';
+import { useGetAllRecipes, useGetAllRawMaterials } from '../hooks/useQueries';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -11,12 +11,18 @@ interface RecipeListProps {
     name: string;
     category: string;
     portionWeight: number;
-    ingredients: Array<{ name: string; quantity: number; unit: string }>;
+    ingredients: Array<{ rawMaterialId: bigint; quantity: number; unit: string }>;
   }) => void;
 }
 
 export default function RecipeList({ onEdit }: RecipeListProps) {
   const { data: recipes, isLoading } = useGetAllRecipes();
+  const { data: rawMaterials } = useGetAllRawMaterials();
+
+  // Create a map of raw material ID to raw material data
+  const rawMaterialsMap = new Map(
+    rawMaterials?.map(rm => [rm.id.toString(), rm]) || []
+  );
 
   if (isLoading) {
     return (
@@ -50,8 +56,23 @@ export default function RecipeList({ onEdit }: RecipeListProps) {
   }
 
   const handleDelete = (recipeName: string) => {
-    // Delete functionality - for now just show a message
     console.log('Delete recipe:', recipeName);
+  };
+
+  const handleEdit = (recipe: typeof recipes[0]) => {
+    // Convert ingredients to the format expected by the form
+    const formattedIngredients = recipe.ingredients.map(ing => ({
+      rawMaterialId: ing.rawMaterialId,
+      quantity: ing.quantityPerPortion,
+      unit: ing.unit,
+    }));
+
+    onEdit({
+      name: recipe.name,
+      category: recipe.category,
+      portionWeight: recipe.portionWeight,
+      ingredients: formattedIngredients,
+    });
   };
 
   return (
@@ -60,82 +81,69 @@ export default function RecipeList({ onEdit }: RecipeListProps) {
         <CardTitle className="text-[oklch(0.35_0.08_35)]">Recipe List</CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="font-semibold">Recipe Name</TableHead>
-                <TableHead className="font-semibold">Category</TableHead>
-                <TableHead className="font-semibold">Standard Portion Weight</TableHead>
-                <TableHead className="font-semibold">No. of Ingredients</TableHead>
-                <TableHead className="text-right font-semibold">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recipes.map((recipe) => (
-                <TableRow key={recipe.name}>
-                  <TableCell className="font-medium">{recipe.name}</TableCell>
-                  <TableCell>{recipe.category}</TableCell>
-                  <TableCell>{recipe.portionWeight}g</TableCell>
-                  <TableCell>{recipe.ingredients.length}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          onEdit({
-                            name: recipe.name,
-                            category: recipe.category,
-                            portionWeight: recipe.portionWeight,
-                            ingredients: recipe.ingredients.map((ing) => ({
-                              name: ing.name,
-                              quantity: ing.quantityPerPortion,
-                              unit: ing.unit,
-                            })),
-                          })
-                        }
-                        className="h-8"
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="font-semibold">Recipe Name</TableHead>
+              <TableHead className="font-semibold">Category</TableHead>
+              <TableHead className="text-right font-semibold">Standard Portion Weight</TableHead>
+              <TableHead className="text-right font-semibold">No. of Ingredients</TableHead>
+              <TableHead className="text-right font-semibold">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {recipes.map((recipe) => (
+              <TableRow key={recipe.name}>
+                <TableCell className="font-medium">{recipe.name}</TableCell>
+                <TableCell>{recipe.category}</TableCell>
+                <TableCell className="text-right">{recipe.portionWeight}g</TableCell>
+                <TableCell className="text-right">{recipe.ingredients.length}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEdit(recipe)}
+                      className="text-[oklch(0.65_0.12_140)] hover:text-[oklch(0.60_0.10_150)]"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the recipe "{recipe.name}". This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(recipe.name)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
-                            <Trash2 className="h-4 w-4 mr-1" />
                             Delete
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Recipe</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{recipe.name}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(recipe.name)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

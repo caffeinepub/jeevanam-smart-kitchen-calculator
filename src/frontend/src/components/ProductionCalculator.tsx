@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calculator } from 'lucide-react';
-import { useGetAllCategories, useGetRecipesByCategory, useCalculateProduction } from '../hooks/useQueries';
+import { useGetAllCategories, useGetRecipesByCategory, useCalculateProduction, useGetAllRawMaterials } from '../hooks/useQueries';
 import { toast } from 'sonner';
+import type { Ingredient } from '../backend';
 
 interface ProductionCalculatorProps {
   onCalculationComplete: (result: { recipeName: string; quantity: number }) => void;
@@ -23,12 +24,19 @@ export default function ProductionCalculator({ onCalculationComplete }: Producti
   const [selectedRecipe, setSelectedRecipe] = useState('');
   const [quantity, setQuantity] = useState('');
   const [calculationResult, setCalculationResult] = useState<{
-    ingredients: Array<{ name: string; quantityPerPortion: number; unit: string }>;
+    totalPortionWeight: number;
+    ingredients: Ingredient[];
   } | null>(null);
 
   const { data: categories } = useGetAllCategories();
   const { data: recipes } = useGetRecipesByCategory(selectedCategory);
+  const { data: rawMaterials } = useGetAllRawMaterials();
   const calculateMutation = useCalculateProduction();
+
+  // Create a map of raw material ID to raw material data
+  const rawMaterialsMap = new Map(
+    rawMaterials?.map(rm => [rm.id.toString(), rm]) || []
+  );
 
   const convertUnit = (quantity: number, unit: string): { value: string; unit: string } => {
     // Convert grams to kg if >= 1000
@@ -164,10 +172,12 @@ export default function ProductionCalculator({ onCalculationComplete }: Producti
               </TableHeader>
               <TableBody>
                 {calculationResult.ingredients.map((ing, idx) => {
+                  const rawMaterial = rawMaterialsMap.get(ing.rawMaterialId.toString());
+                  const ingredientName = rawMaterial?.rawMaterialName || `Ingredient ${idx + 1}`;
                   const converted = convertUnit(ing.quantityPerPortion, ing.unit);
                   return (
                     <TableRow key={idx}>
-                      <TableCell className="font-medium">{ing.name}</TableCell>
+                      <TableCell className="font-medium">{ingredientName}</TableCell>
                       <TableCell className="text-right font-semibold text-[oklch(0.55_0.18_30)]">
                         {converted.value}
                       </TableCell>

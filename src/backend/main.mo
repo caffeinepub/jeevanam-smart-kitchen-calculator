@@ -1,30 +1,22 @@
 import Map "mo:core/Map";
-import Array "mo:core/Array";
 import List "mo:core/List";
 import Float "mo:core/Float";
 import Nat "mo:core/Nat";
 import Text "mo:core/Text";
-import Time "mo:core/Time";
 import Runtime "mo:core/Runtime";
 import Iter "mo:core/Iter";
 import Principal "mo:core/Principal";
-import Migration "migration";
 
-(with migration = Migration.run)
+
+
 actor {
   public type IngredientQuantity = {
     quantity : Float;
     unit : Text;
   };
 
-  public type IngredientCost = {
-    costPerUnit : Float;
-    lastUpdated : Int;
-    unit : Text;
-  };
-
   public type Ingredient = {
-    name : Text;
+    rawMaterialId : Nat;
     quantityPerPortion : Float;
     unit : Text;
   };
@@ -37,9 +29,6 @@ actor {
   };
 
   public type CostBreakdown = {
-    ingredient : Text;
-    quantity : Float;
-    unit : Text;
     costPerUnit : Float;
     totalCost : Float;
   };
@@ -64,15 +53,18 @@ actor {
     pricePerUnit : Float;
   };
 
+  public type Unit = {
+    rawMaterialId : Nat;
+    unitType : Text;
+    conversionFactorToBase : Float;
+  };
+
   let recipes = Map.empty<Text, Recipe>();
-  let ingredientCosts = Map.empty<Text, IngredientCost>();
   let recipeProductionHistory = Map.empty<Text, Nat>();
-  let productionHistoryCache = Map.empty<Text, ([Text], Nat)>();
   var adminId : ?Principal = null;
   var isInitialized = false;
 
   let ingredientsList = List.empty<Ingredient>();
-  let productionHistoryList = List.empty<(Text, Nat)>();
 
   let rawMaterialsMap = Map.empty<Nat, RawMaterial>();
   var nextRawMaterialId = 1;
@@ -119,40 +111,6 @@ actor {
   ) : async () {
     verifyAdmin(caller);
     recipes.add(name, { name; category; portionWeight; ingredients });
-  };
-
-  public shared ({ caller }) func setIngredientCost(ingredientName : Text, costPerUnit : Float, unit : Text) : async () {
-    verifyAdmin(caller);
-    switch (ingredientCosts.get(ingredientName)) {
-      case (null) {
-        let currentTime = Time.now();
-        let costRecord : IngredientCost = {
-          costPerUnit;
-          lastUpdated = currentTime;
-          unit;
-        };
-        ingredientCosts.add(ingredientName, costRecord);
-      };
-      case (_) {
-        Runtime.trap("Ingredient cost already exists. Use updateIngredientCost instead.");
-      };
-    };
-  };
-
-  public shared ({ caller }) func updateIngredientCost(ingredientName : Text, newCostPerUnit : Float) : async () {
-    verifyAdmin(caller);
-    switch (ingredientCosts.get(ingredientName)) {
-      case (?existingCost) {
-        let updatedCost : IngredientCost = {
-          existingCost with costPerUnit = newCostPerUnit;
-          lastUpdated = Time.now();
-        };
-        ingredientCosts.add(ingredientName, updatedCost);
-      };
-      case (null) {
-        Runtime.trap("Ingredient not found. Use setIngredientCost to add new ingredients.");
-      };
-    };
   };
 
   public query ({ caller }) func calculateProduction(recipeName : Text, quantity : Float) : async {
@@ -216,19 +174,13 @@ actor {
 
         for (ingredient in recipe.ingredients.values()) {
           let ingredientQuantity = ingredient.quantityPerPortion * quantity;
-          switch (ingredientCosts.get(ingredient.name)) {
-            case (?cost) {
-              let unit = cost.unit;
-
-              let convertedTotalCost = ingredientQuantity * cost.costPerUnit;
-
+          switch (rawMaterialsMap.get(ingredient.rawMaterialId)) {
+            case (?rawMaterial) {
+              let costPerUnit = rawMaterial.pricePerUnit;
+              let convertedTotalCost = ingredientQuantity * costPerUnit;
               totalCost += convertedTotalCost;
-
               ingredientBreakdown.add({
-                ingredient = ingredient.name;
-                quantity = ingredientQuantity;
-                unit;
-                costPerUnit = cost.costPerUnit;
+                costPerUnit;
                 totalCost = convertedTotalCost;
               });
             };
@@ -286,7 +238,8 @@ actor {
     var totalFoodCost = 0.0;
     var recipeCount = 0;
     for ((name, recipe) in recipes.entries()) {
-      switch (calculateCostSync(name, 1.0)) {
+      let costOpt = calculateCostSync(name, 1.0);
+      switch (costOpt) {
         case (?cost) {
           totalFoodCost += cost.costPerPortion;
           recipeCount += 1;
@@ -304,9 +257,9 @@ actor {
         var totalCost = 0.0;
         for (ingredient in recipe.ingredients.values()) {
           let ingredientQuantity = ingredient.quantityPerPortion * quantity;
-          switch (ingredientCosts.get(ingredient.name)) {
-            case (?cost) {
-              totalCost += ingredientQuantity * cost.costPerUnit;
+          switch (rawMaterialsMap.get(ingredient.rawMaterialId)) {
+            case (?rawMaterial) {
+              totalCost += ingredientQuantity * rawMaterial.pricePerUnit;
             };
             case (null) {};
           };

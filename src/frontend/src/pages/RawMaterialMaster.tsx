@@ -1,14 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, CheckCircle } from 'lucide-react';
 import RawMaterialForm from '../components/RawMaterialForm';
 import RawMaterialTable from '../components/RawMaterialTable';
 import type { RawMaterial } from '../backend';
+import { useBackendHealth } from '../hooks/useBackendHealth';
 
 export default function RawMaterialMaster() {
   const [editingRawMaterial, setEditingRawMaterial] = useState<RawMaterial | null>(null);
   const [showGlobalError, setShowGlobalError] = useState(false);
+  const [showRecoveryMessage, setShowRecoveryMessage] = useState(false);
+  const { isHealthy } = useBackendHealth();
+
+  // Monitor backend health and show recovery message
+  useEffect(() => {
+    if (isHealthy && showGlobalError) {
+      setShowRecoveryMessage(true);
+      setShowGlobalError(false);
+      
+      // Auto-dismiss recovery message after 5 seconds
+      const timer = setTimeout(() => {
+        setShowRecoveryMessage(false);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isHealthy, showGlobalError]);
+
+  // Show error if backend becomes unhealthy
+  useEffect(() => {
+    if (!isHealthy) {
+      setShowGlobalError(true);
+      setShowRecoveryMessage(false);
+    }
+  }, [isHealthy]);
 
   const handleEdit = (rawMaterial: RawMaterial) => {
     setEditingRawMaterial(rawMaterial);
@@ -37,19 +63,29 @@ export default function RawMaterialMaster() {
         </div>
       </div>
 
+      {showRecoveryMessage && (
+        <Alert className="border-green-500 bg-green-50">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Service Recovered</AlertTitle>
+          <AlertDescription className="text-green-700">
+            The backend service has recovered and is now available. All operations should work normally.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {showGlobalError && (
         <Alert variant="destructive" className="border-[oklch(0.55_0.18_30)]">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Service Temporarily Unavailable</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>
-              The backend service is currently stopped and cannot process requests. This is usually a temporary condition that resolves automatically.
+              The backend service is currently stopped and cannot process requests. This is usually a temporary condition during deployment or system recovery.
             </p>
             <p className="text-sm">
               <strong>What you can do:</strong>
             </p>
             <ul className="text-sm list-disc list-inside space-y-1">
-              <li>Wait 30-60 seconds and try your operation again</li>
+              <li>Wait 30-60 seconds - the system is automatically monitoring and will recover</li>
               <li>Refresh the page to check if the service has recovered</li>
               <li>Your data is safe and will be available once the service restarts</li>
             </ul>

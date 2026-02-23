@@ -102,7 +102,7 @@ export interface RawMaterial {
 }
 export interface Ingredient {
     quantityPerPortion: number;
-    name: string;
+    rawMaterialId: bigint;
     unit: string;
 }
 export interface DashboardStats {
@@ -113,10 +113,7 @@ export interface DashboardStats {
 }
 export interface CostBreakdown {
     costPerUnit: number;
-    ingredient: string;
-    unit: string;
     totalCost: number;
-    quantity: number;
 }
 export interface backendInterface {
     addRawMaterial(rawMaterialName: string, unitType: string, pricePerUnit: number): Promise<void>;
@@ -139,9 +136,7 @@ export interface backendInterface {
         date: string;
         ingredients: Array<Ingredient>;
     }>;
-    setIngredientCost(ingredientName: string, costPerUnit: number, unit: string): Promise<void>;
     setupAdmin(): Promise<void>;
-    updateIngredientCost(ingredientName: string, newCostPerUnit: number): Promise<void>;
 }
 import type { RawMaterial as _RawMaterial } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -322,20 +317,6 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async setIngredientCost(arg0: string, arg1: number, arg2: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.setIngredientCost(arg0, arg1, arg2);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.setIngredientCost(arg0, arg1, arg2);
-            return result;
-        }
-    }
     async setupAdmin(): Promise<void> {
         if (this.processError) {
             try {
@@ -347,20 +328,6 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.setupAdmin();
-            return result;
-        }
-    }
-    async updateIngredientCost(arg0: string, arg1: number): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.updateIngredientCost(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.updateIngredientCost(arg0, arg1);
             return result;
         }
     }

@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Edit, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Edit, Trash2, AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGetAllRawMaterials, useDeleteRawMaterial, isCanisterStoppedError, getErrorMessage } from '../hooks/useQueries';
 import type { RawMaterial } from '../backend';
@@ -29,11 +29,15 @@ export default function RawMaterialTable({ onEdit }: RawMaterialTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRawMaterial, setSelectedRawMaterial] = useState<RawMaterial | null>(null);
   const [canisterError, setCanisterError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isAutoRetrying, setIsAutoRetrying] = useState(false);
 
   const handleDeleteClick = (rawMaterial: RawMaterial) => {
     setSelectedRawMaterial(rawMaterial);
     setDeleteDialogOpen(true);
     setCanisterError(null);
+    setRetryCount(0);
+    setIsAutoRetrying(false);
   };
 
   const handleDeleteConfirm = async () => {
@@ -45,12 +49,28 @@ export default function RawMaterialTable({ onEdit }: RawMaterialTableProps) {
       setDeleteDialogOpen(false);
       setSelectedRawMaterial(null);
       setCanisterError(null);
+      setRetryCount(0);
+      setIsAutoRetrying(false);
     } catch (error: any) {
       const errorMessage = getErrorMessage(error);
       
       // Check if it's a canister stopped error
       if (isCanisterStoppedError(error)) {
         setCanisterError(errorMessage);
+        setRetryCount(prev => prev + 1);
+        
+        // Automatic retry with exponential backoff (up to 5 attempts)
+        if (retryCount < 5) {
+          setIsAutoRetrying(true);
+          const delay = Math.min(2000 * Math.pow(2, retryCount), 16000);
+          
+          setTimeout(() => {
+            console.log(`[RawMaterialTable] Auto-retrying delete after ${delay}ms (attempt ${retryCount + 1}/5)`);
+            handleDeleteConfirm();
+          }, delay);
+        } else {
+          setIsAutoRetrying(false);
+        }
         // Keep dialog open to show error and allow retry
       } else {
         toast.error(errorMessage);
@@ -63,7 +83,17 @@ export default function RawMaterialTable({ onEdit }: RawMaterialTableProps) {
 
   const handleRetryDelete = () => {
     setCanisterError(null);
+    setRetryCount(0);
+    setIsAutoRetrying(false);
     handleDeleteConfirm();
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setSelectedRawMaterial(null);
+    setCanisterError(null);
+    setRetryCount(0);
+    setIsAutoRetrying(false);
   };
 
   if (isLoading) {
@@ -123,7 +153,7 @@ export default function RawMaterialTable({ onEdit }: RawMaterialTableProps) {
                             variant="outline"
                             size="sm"
                             onClick={() => onEdit(rawMaterial)}
-                            className="border-[oklch(0.65_0.12_140)] text-[oklch(0.65_0.12_140)] hover:bg-[oklch(0.65_0.12_140)] hover:text-white transition-colors"
+                            className="border-[oklch(0.62_0.15_35)] text-[oklch(0.62_0.15_35)] hover:bg-[oklch(0.62_0.15_35)] hover:text-white"
                           >
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
@@ -132,7 +162,7 @@ export default function RawMaterialTable({ onEdit }: RawMaterialTableProps) {
                             variant="outline"
                             size="sm"
                             onClick={() => handleDeleteClick(rawMaterial)}
-                            className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                            className="border-[oklch(0.55_0.18_30)] text-[oklch(0.55_0.18_30)] hover:bg-[oklch(0.55_0.18_30)] hover:text-white"
                           >
                             <Trash2 className="h-4 w-4 mr-1" />
                             Delete
@@ -151,79 +181,70 @@ export default function RawMaterialTable({ onEdit }: RawMaterialTableProps) {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {canisterError ? 'Service Temporarily Unavailable' : 'Are you sure?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                {canisterError ? (
-                  <>
-                    <Alert variant="destructive" className="mt-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Cannot Complete Delete Operation</AlertTitle>
-                      <AlertDescription>
-                        <p className="mb-2">{canisterError}</p>
-                        <p className="text-sm">
-                          The backend canister is currently stopped. Please wait a moment and try again.
-                        </p>
-                      </AlertDescription>
-                    </Alert>
-                    <p className="text-sm text-muted-foreground">
-                      Your delete request for "{selectedRawMaterial?.rawMaterialName}" will be processed once the service is available.
-                    </p>
-                  </>
-                ) : (
-                  <p>
-                    This will permanently delete "{selectedRawMaterial?.rawMaterialName}". This action cannot be undone.
-                  </p>
-                )}
-              </div>
+            <AlertDialogTitle>Delete Raw Material</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedRawMaterial?.rawMaterialName}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {canisterError && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Service Temporarily Unavailable</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>{canisterError}</p>
+                <p className="text-sm">
+                  The backend canister is currently stopped. This usually resolves automatically during deployment or system recovery.
+                  {retryCount > 0 && ` (Retry attempt ${retryCount}/5)`}
+                </p>
+                {isAutoRetrying && (
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Automatically retrying...</span>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete} disabled={deleteMutation.isPending || isAutoRetrying}>
+              Cancel
+            </AlertDialogCancel>
             {canisterError ? (
-              <>
-                <AlertDialogCancel onClick={() => {
-                  setCanisterError(null);
-                  setDeleteDialogOpen(false);
-                }}>
-                  Cancel
-                </AlertDialogCancel>
-                <Button
-                  onClick={handleRetryDelete}
-                  disabled={deleteMutation.isPending}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  {deleteMutation.isPending ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Retrying...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Retry Delete
-                    </>
-                  )}
-                </Button>
-              </>
+              <Button
+                variant="outline"
+                onClick={handleRetryDelete}
+                disabled={deleteMutation.isPending || isAutoRetrying}
+                className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                {deleteMutation.isPending || isAutoRetrying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry Delete
+                  </>
+                )}
+              </Button>
             ) : (
-              <>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDeleteConfirm}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  {deleteMutation.isPending ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Deleting...
-                    </>
-                  ) : (
-                    'Delete'
-                  )}
-                </AlertDialogAction>
-              </>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                disabled={deleteMutation.isPending}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                {deleteMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </AlertDialogAction>
             )}
           </AlertDialogFooter>
         </AlertDialogContent>

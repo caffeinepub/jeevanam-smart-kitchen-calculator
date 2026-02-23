@@ -1,66 +1,52 @@
 {
   "kind": "build_request",
-  "title": "Fix canister stopped error preventing raw material operations",
+  "title": "Fix Internet Identity canister stopped error on login",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Investigate and resolve the 'Service temporarily unavailable. The canister is stopped.' error that occurs when attempting raw material operations after deployment",
+      "text": "Fix the canister stopped error (IC0408) occurring during Internet Identity login that shows 'The replica returned a rejection error: Reject code: 5, Reject text: Canister ohbdn-3yaaa-aaaah-a46oa-cai is stopped'",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-latest"
+          "msg-current"
         ],
         "quotes": [
-          "Service temporarily unavailable. The canister is stopped. Please try again in a moment."
+          "Reject text: Canister ohbdn-3yaaa-aaaah-a46oa-cai is stopped",
+          "Error code: IC0408"
         ]
       },
       "acceptanceCriteria": [
-        "Raw material operations complete successfully without canister stopped errors",
-        "Backend canister remains running and responsive after deployment",
-        "Error handling provides clear feedback if canister issues occur"
+        "Login completes successfully without canister stopped errors",
+        "The setupAdmin function executes without rejection",
+        "Users can authenticate and access the application",
+        "No IC0408 error codes appear in the console"
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Add backend initialization checks and error recovery mechanisms to prevent canister停止 state during admin setup and raw material operations",
+      "text": "Ensure the backend canister ohbdn-3yaaa-aaaah-a46oa-cai is running and properly configured to accept requests from the Internet Identity authentication flow",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-latest"
+          "msg-current"
         ]
       },
       "acceptanceCriteria": [
-        "Backend gracefully handles initialization state transitions",
-        "Admin setup operations do not cause canister to stop",
-        "Canister automatically recovers from transient stopped states if possible"
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Improve frontend error handling to detect canister stopped errors and provide user-friendly guidance on next steps",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-latest"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Frontend displays clear error message when canister is stopped",
-        "User receives guidance on whether to retry or wait",
-        "Error state does not leave UI in broken state"
+        "Backend canister responds to health checks",
+        "Canister accepts authenticated requests from Internet Identity",
+        "setupAdmin endpoint is accessible and functional"
       ]
     }
   ],
   "constraints": [
-    "Must maintain existing admin authentication Principal-based access control",
-    "Do not break existing recipe management, production calculator, or cost analysis features",
-    "Preserve single-actor backend architecture"
+    "Do not modify the Internet Identity authentication implementation in frontend/src/hooks/useInternetIdentity.ts",
+    "Preserve existing retry logic and error handling in Login.tsx"
   ],
   "nonGoals": [
-    "Rewriting the entire backend architecture",
-    "Changing the authentication system from Internet Identity",
-    "Adding external monitoring or alerting systems"
+    "Changing the authentication provider from Internet Identity",
+    "Modifying the frontend UI or styling of the login page",
+    "Adding alternative authentication methods"
   ],
   "imageRequirements": {
     "required": [],
