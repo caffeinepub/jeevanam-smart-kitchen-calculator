@@ -123,6 +123,7 @@ export interface backendInterface {
         totalPortionWeight: number;
         ingredients: Array<Ingredient>;
     }>;
+    checkHealth(): Promise<boolean>;
     deleteRawMaterial(id: bigint): Promise<void>;
     editRawMaterial(id: bigint, rawMaterialName: string, unitType: string, pricePerUnit: number): Promise<void>;
     getAllCategories(): Promise<Array<string>>;
@@ -197,6 +198,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.calculateProduction(arg0, arg1);
+            return result;
+        }
+    }
+    async checkHealth(): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.checkHealth();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.checkHealth();
             return result;
         }
     }

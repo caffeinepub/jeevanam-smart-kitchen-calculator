@@ -41,6 +41,7 @@ export interface backendInterface {
         totalPortionWeight: number;
         ingredients: Array<Ingredient>;
     }>;
+    checkHealth(): Promise<boolean>;
     deleteRawMaterial(id: bigint): Promise<void>;
     editRawMaterial(id: bigint, rawMaterialName: string, unitType: string, pricePerUnit: number): Promise<void>;
     getAllCategories(): Promise<Array<string>>;

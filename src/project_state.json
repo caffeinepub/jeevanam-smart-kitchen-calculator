@@ -4,29 +4,46 @@
   "summary": "New project",
   "architectural_notes": [],
   "known_issues": [
-    "Login produces a 'not found' error"
+    "Live deployment (Version 24) showing 'Service Temporarily Unavailable' and connection errors"
   ],
   "isFixRequest": true,
-  "existing_features": [],
-  "new_feature_requests": [
+  "existing_features": [
     {
-      "id": "AR-1",
-      "summary": "Fix the canister stopped error (IC0408) occurring during Internet Identity login that shows 'The replica returned a rejection error: Reject code: 5, Reject text: Canister ohbdn-3yaaa-aaaah-a46oa-cai is stopped'",
+      "id": "feature-add-comprehensive-error-handling-and-retry-logic-to-all-backend-query-hooks-to-gracefully-handle-canister-stopped-errors-ic0408-and-connection-failures-with-exponential-backoff",
+      "title": "Add comprehensive error handling and retry logic to all backend query hooks to gracefully handle canister stopped errors (IC0408) and connection failures with exponential backoff",
       "reqIds": [
         "REQ-1"
       ],
-      "status": "pending"
+      "version": 1
     },
     {
-      "id": "AR-2",
-      "summary": "Ensure the backend canister ohbdn-3yaaa-aaaah-a46oa-cai is running and properly configured to accept requests from the Internet Identity authentication flow",
+      "id": "feature-enhance-the-usebackendhealth-hook-to-detect-and-display-connection-errors-more-prominently-showing-recovery-status-to-users-when-the-service-becomes-available-again",
+      "title": "Enhance the useBackendHealth hook to detect and display connection errors more prominently, showing recovery status to users when the service becomes available again",
       "reqIds": [
         "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-global-error-boundary-component-that-catches-authentication-and-connection-errors-during-initial-app-load-displaying-user-friendly-recovery-instructions",
+      "title": "Add a global error boundary component that catches authentication and connection errors during initial app load, displaying user-friendly recovery instructions",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-4",
+      "summary": "Verify backend canister configuration and add health check endpoint in main.mo that returns canister status to help diagnose service availability issues",
+      "reqIds": [
+        "REQ-4"
       ],
       "status": "pending"
     }
   ],
-  "projectName": "Fix Internet Identity canister stopped error on login",
+  "projectName": "Fix live deployment service unavailable and connection errors",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

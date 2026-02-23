@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import type { Ingredient, RecipeCostAnalysis, DashboardStats, RawMaterial } from '../backend';
+import { shouldRetryError, calculateRetryDelay, isCanisterStoppedError, getErrorMessage } from '@/utils/errorHandling';
+
+// Re-export error handling utilities for convenience
+export { isCanisterStoppedError, getErrorMessage };
 
 interface Recipe {
   name: string;
@@ -34,57 +38,6 @@ const getProductionHistory = (): ProductionRecord[] => {
 const saveProductionHistory = (history: ProductionRecord[]) => {
   localStorage.setItem(PRODUCTION_HISTORY_KEY, JSON.stringify(history));
 };
-
-// Helper to detect canister stopped errors
-export function isCanisterStoppedError(error: any): boolean {
-  if (!error?.message) return false;
-  const errorStr = error.message.toLowerCase();
-  return errorStr.includes('ic0508') || 
-         (errorStr.includes('canister') && errorStr.includes('stopped')) ||
-         errorStr.includes('service temporarily unavailable');
-}
-
-// Helper to get user-friendly error message
-export function getErrorMessage(error: any): string {
-  if (!error?.message) return 'An unexpected error occurred';
-  
-  const errorStr = error.message.toLowerCase();
-  
-  if (isCanisterStoppedError(error)) {
-    return 'Service temporarily unavailable. The backend is currently stopped. Please wait a moment and try again.';
-  }
-  
-  if (errorStr.includes('admin not set up') || errorStr.includes('only the admin')) {
-    return 'Authentication error: Admin access not properly configured. Please log out and log back in.';
-  }
-  
-  if (errorStr.includes('reject')) {
-    return 'Request was rejected by the service. Please try again.';
-  }
-  
-  if (errorStr.includes('already exists')) {
-    return 'This item already exists';
-  }
-  
-  if (errorStr.includes('not found')) {
-    return 'Item not found';
-  }
-  
-  if (errorStr.includes('cannot be negative')) {
-    return 'Value cannot be negative';
-  }
-  
-  if (errorStr.includes('cannot be empty')) {
-    return 'Value cannot be empty';
-  }
-  
-  // Return original message if it's user-friendly
-  if (!errorStr.includes('actor') && !errorStr.includes('undefined')) {
-    return error.message;
-  }
-  
-  return 'An unexpected error occurred. Please try again.';
-}
 
 // Recipe queries
 export function useGetAllRecipes() {
@@ -139,14 +92,14 @@ export function useGetAllRecipes() {
     },
     enabled: !!actor && !isFetching,
     retry: (failureCount, error: any) => {
-      if (isCanisterStoppedError(error) && failureCount < 5) {
-        console.log(`[useGetAllRecipes] Retrying due to canister stopped error (attempt ${failureCount + 1})`);
-        return true;
+      const shouldRetry = shouldRetryError(error, failureCount);
+      if (shouldRetry) {
+        console.log(`[useGetAllRecipes] Retrying (attempt ${failureCount + 1})`);
       }
-      return false;
+      return shouldRetry;
     },
     retryDelay: (attemptIndex) => {
-      const delay = Math.min(2000 * Math.pow(2, attemptIndex), 16000);
+      const delay = calculateRetryDelay(attemptIndex);
       console.log(`[useGetAllRecipes] Retry delay: ${delay}ms`);
       return delay;
     },
@@ -171,6 +124,8 @@ export function useAddRecipe() {
       queryClient.invalidateQueries({ queryKey: ['recipes'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
+    retry: (failureCount, error: any) => shouldRetryError(error, failureCount),
+    retryDelay: (attemptIndex) => calculateRetryDelay(attemptIndex),
   });
 }
 
@@ -185,13 +140,8 @@ export function useGetAllCategories() {
       return actor.getAllCategories();
     },
     enabled: !!actor && !isFetching,
-    retry: (failureCount, error: any) => {
-      if (isCanisterStoppedError(error) && failureCount < 5) {
-        return true;
-      }
-      return false;
-    },
-    retryDelay: (attemptIndex) => Math.min(2000 * Math.pow(2, attemptIndex), 16000),
+    retry: (failureCount, error: any) => shouldRetryError(error, failureCount),
+    retryDelay: (attemptIndex) => calculateRetryDelay(attemptIndex),
   });
 }
 
@@ -205,13 +155,8 @@ export function useGetRecipesByCategory(category: string) {
       return actor.getRecipesByCategory(category);
     },
     enabled: !!actor && !isFetching && !!category,
-    retry: (failureCount, error: any) => {
-      if (isCanisterStoppedError(error) && failureCount < 5) {
-        return true;
-      }
-      return false;
-    },
-    retryDelay: (attemptIndex) => Math.min(2000 * Math.pow(2, attemptIndex), 16000),
+    retry: (failureCount, error: any) => shouldRetryError(error, failureCount),
+    retryDelay: (attemptIndex) => calculateRetryDelay(attemptIndex),
   });
 }
 
@@ -224,6 +169,8 @@ export function useCalculateProduction() {
       if (!actor) throw new Error('Actor not initialized');
       return actor.calculateProduction(recipeName, quantity);
     },
+    retry: (failureCount, error: any) => shouldRetryError(error, failureCount),
+    retryDelay: (attemptIndex) => calculateRetryDelay(attemptIndex),
   });
 }
 
@@ -236,6 +183,8 @@ export function useGetStoreIssueSlip() {
       if (!actor) throw new Error('Actor not initialized');
       return actor.getStoreIssueSlip(recipeName, quantity);
     },
+    retry: (failureCount, error: any) => shouldRetryError(error, failureCount),
+    retryDelay: (attemptIndex) => calculateRetryDelay(attemptIndex),
   });
 }
 
@@ -267,6 +216,8 @@ export function useCalculateCost() {
         throw error;
       }
     },
+    retry: (failureCount, error: any) => shouldRetryError(error, failureCount),
+    retryDelay: (attemptIndex) => calculateRetryDelay(attemptIndex),
   });
 }
 
@@ -289,14 +240,14 @@ export function useGetDashboardStats() {
     },
     enabled: !!actor && !isFetching,
     retry: (failureCount, error: any) => {
-      if (isCanisterStoppedError(error) && failureCount < 5) {
-        console.log(`[useGetDashboardStats] Retrying due to canister stopped error (attempt ${failureCount + 1})`);
-        return true;
+      const shouldRetry = shouldRetryError(error, failureCount);
+      if (shouldRetry) {
+        console.log(`[useGetDashboardStats] Retrying (attempt ${failureCount + 1})`);
       }
-      return false;
+      return shouldRetry;
     },
     retryDelay: (attemptIndex) => {
-      const delay = Math.min(2000 * Math.pow(2, attemptIndex), 16000);
+      const delay = calculateRetryDelay(attemptIndex);
       console.log(`[useGetDashboardStats] Retry delay: ${delay}ms`);
       return delay;
     },
@@ -354,15 +305,14 @@ export function useGetAllRawMaterials() {
     },
     enabled: !!actor && !isFetching,
     retry: (failureCount, error: any) => {
-      // Retry up to 5 times for canister stopped errors
-      if (isCanisterStoppedError(error) && failureCount < 5) {
-        console.log(`[useGetAllRawMaterials] Retrying due to canister stopped error (attempt ${failureCount + 1})`);
-        return true;
+      const shouldRetry = shouldRetryError(error, failureCount);
+      if (shouldRetry) {
+        console.log(`[useGetAllRawMaterials] Retrying (attempt ${failureCount + 1})`);
       }
-      return false;
+      return shouldRetry;
     },
     retryDelay: (attemptIndex) => {
-      const delay = Math.min(2000 * Math.pow(2, attemptIndex), 16000);
+      const delay = calculateRetryDelay(attemptIndex);
       console.log(`[useGetAllRawMaterials] Retry delay: ${delay}ms`);
       return delay;
     },
@@ -390,7 +340,6 @@ export function useAddRawMaterial() {
       queryClient.invalidateQueries({ queryKey: ['rawMaterials'] });
     },
     onError: (error: any) => {
-      // Enhanced error logging for debugging
       console.error('[useAddRawMaterial] Error details:', {
         message: error?.message,
         name: error?.name,
@@ -398,33 +347,8 @@ export function useAddRawMaterial() {
         friendlyMessage: getErrorMessage(error),
       });
     },
-    retry: (failureCount, error: any) => {
-      // Don't retry on validation errors or duplicate errors
-      const errorStr = error?.message?.toLowerCase() || '';
-      if (errorStr.includes('already exists') || 
-          errorStr.includes('cannot be negative') || 
-          errorStr.includes('cannot be empty') ||
-          errorStr.includes('admin not set up') ||
-          errorStr.includes('only the admin')) {
-        return false;
-      }
-      
-      // Retry up to 5 times for canister stopped errors with exponential backoff
-      if (isCanisterStoppedError(error) && failureCount < 5) {
-        return true;
-      }
-      
-      // Retry once for other rejection errors
-      if (errorStr.includes('reject') && failureCount < 1) {
-        return true;
-      }
-      
-      return false;
-    },
-    retryDelay: (attemptIndex) => {
-      // Exponential backoff: 2s, 4s, 8s, 16s for canister stopped errors
-      return Math.min(2000 * Math.pow(2, attemptIndex), 16000);
-    },
+    retry: (failureCount, error: any) => shouldRetryError(error, failureCount),
+    retryDelay: (attemptIndex) => calculateRetryDelay(attemptIndex),
   });
 }
 
@@ -458,31 +382,8 @@ export function useEditRawMaterial() {
         friendlyMessage: getErrorMessage(error),
       });
     },
-    retry: (failureCount, error: any) => {
-      const errorStr = error?.message?.toLowerCase() || '';
-      
-      if (errorStr.includes('already exists') || 
-          errorStr.includes('cannot be negative') || 
-          errorStr.includes('cannot be empty') ||
-          errorStr.includes('not found') ||
-          errorStr.includes('admin not set up') ||
-          errorStr.includes('only the admin')) {
-        return false;
-      }
-      
-      if (isCanisterStoppedError(error) && failureCount < 5) {
-        return true;
-      }
-      
-      if (errorStr.includes('reject') && failureCount < 1) {
-        return true;
-      }
-      
-      return false;
-    },
-    retryDelay: (attemptIndex) => {
-      return Math.min(2000 * Math.pow(2, attemptIndex), 16000);
-    },
+    retry: (failureCount, error: any) => shouldRetryError(error, failureCount),
+    retryDelay: (attemptIndex) => calculateRetryDelay(attemptIndex),
   });
 }
 
@@ -506,27 +407,7 @@ export function useDeleteRawMaterial() {
         friendlyMessage: getErrorMessage(error),
       });
     },
-    retry: (failureCount, error: any) => {
-      const errorStr = error?.message?.toLowerCase() || '';
-      
-      if (errorStr.includes('not found') ||
-          errorStr.includes('admin not set up') ||
-          errorStr.includes('only the admin')) {
-        return false;
-      }
-      
-      if (isCanisterStoppedError(error) && failureCount < 5) {
-        return true;
-      }
-      
-      if (errorStr.includes('reject') && failureCount < 1) {
-        return true;
-      }
-      
-      return false;
-    },
-    retryDelay: (attemptIndex) => {
-      return Math.min(2000 * Math.pow(2, attemptIndex), 16000);
-    },
+    retry: (failureCount, error: any) => shouldRetryError(error, failureCount),
+    retryDelay: (attemptIndex) => calculateRetryDelay(attemptIndex),
   });
 }

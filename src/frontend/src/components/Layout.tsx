@@ -1,9 +1,9 @@
 import { ReactNode } from 'react';
 import Navigation from './Navigation';
+import { ConnectionStatusBanner } from './ConnectionStatusBanner';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Menu, ChefHat, Heart } from 'lucide-react';
-import { SiCoffeescript } from 'react-icons/si';
 
 interface LayoutProps {
   children: ReactNode;
@@ -49,6 +49,9 @@ export default function Layout({ children }: LayoutProps) {
           </Sheet>
         </div>
       </header>
+
+      {/* Connection Status Banner */}
+      <ConnectionStatusBanner />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-7xl">

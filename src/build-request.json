@@ -1,52 +1,90 @@
 {
   "kind": "build_request",
-  "title": "Fix Internet Identity canister stopped error on login",
+  "title": "Fix live deployment service unavailable and connection errors",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Fix the canister stopped error (IC0408) occurring during Internet Identity login that shows 'The replica returned a rejection error: Reject code: 5, Reject text: Canister ohbdn-3yaaa-aaaah-a46oa-cai is stopped'",
-      "target": "backend",
+      "text": "Add comprehensive error handling and retry logic to all backend query hooks to gracefully handle canister stopped errors (IC0408) and connection failures with exponential backoff",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-current"
+          "msg-user-final"
         ],
         "quotes": [
-          "Reject text: Canister ohbdn-3yaaa-aaaah-a46oa-cai is stopped",
-          "Error code: IC0408"
+          "in the live \" Service Temporarily Unavailable\" and connection error came"
         ]
       },
       "acceptanceCriteria": [
-        "Login completes successfully without canister stopped errors",
-        "The setupAdmin function executes without rejection",
-        "Users can authenticate and access the application",
-        "No IC0408 error codes appear in the console"
+        "All useQuery hooks implement automatic retry with exponential backoff for network and canister errors",
+        "User sees informative error messages when backend is temporarily unavailable",
+        "Queries automatically recover and refetch when backend becomes available"
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Ensure the backend canister ohbdn-3yaaa-aaaah-a46oa-cai is running and properly configured to accept requests from the Internet Identity authentication flow",
-      "target": "backend",
+      "text": "Enhance the useBackendHealth hook to detect and display connection errors more prominently, showing recovery status to users when the service becomes available again",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-current"
+          "msg-user-final"
+        ],
+        "quotes": [
+          "in the live \" Service Temporarily Unavailable\" and connection error came"
         ]
       },
       "acceptanceCriteria": [
-        "Backend canister responds to health checks",
-        "Canister accepts authenticated requests from Internet Identity",
-        "setupAdmin endpoint is accessible and functional"
+        "Health check hook detects all types of connection failures (network errors, canister stopped, timeouts)",
+        "Users see a clear banner or notification when service is unavailable",
+        "Success message appears when connection is restored"
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Add a global error boundary component that catches authentication and connection errors during initial app load, displaying user-friendly recovery instructions",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-user-final"
+        ],
+        "quotes": [
+          "in the live \" Service Temporarily Unavailable\" and connection error came"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Error boundary catches all unhandled errors during app initialization",
+        "Users see clear instructions on what to do when service is unavailable",
+        "Error boundary provides a manual retry button"
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Verify backend canister configuration and add health check endpoint in main.mo that returns canister status to help diagnose service availability issues",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-user-final"
+        ],
+        "quotes": [
+          "in the live \" Service Temporarily Unavailable\" and connection error came"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Backend exposes a lightweight health check query function",
+        "Health check returns canister uptime and readiness status",
+        "Function can be called without authentication"
       ]
     }
   ],
   "constraints": [
-    "Do not modify the Internet Identity authentication implementation in frontend/src/hooks/useInternetIdentity.ts",
-    "Preserve existing retry logic and error handling in Login.tsx"
+    "Preserve existing authentication flow using Internet Identity",
+    "Maintain compatibility with current backend actor interface",
+    "Do not modify useInternetIdentity.ts hook implementation"
   ],
   "nonGoals": [
-    "Changing the authentication provider from Internet Identity",
-    "Modifying the frontend UI or styling of the login page",
-    "Adding alternative authentication methods"
+    "Implementing offline-first functionality",
+    "Adding alternative authentication methods",
+    "Changing the backend deployment infrastructure"
   ],
   "imageRequirements": {
     "required": [],

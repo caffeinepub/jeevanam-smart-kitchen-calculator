@@ -361,4 +361,8 @@ actor {
     checkInitialization();
     rawMaterialsMap.get(id);
   };
+
+  public query func checkHealth() : async Bool {
+    true;
+  };
 };

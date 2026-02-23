@@ -28,14 +28,14 @@ export default function ProductionCalculator({ onCalculationComplete }: Producti
     ingredients: Ingredient[];
   } | null>(null);
 
-  const { data: categories } = useGetAllCategories();
-  const { data: recipes } = useGetRecipesByCategory(selectedCategory);
-  const { data: rawMaterials } = useGetAllRawMaterials();
+  const { data: categories = [] } = useGetAllCategories();
+  const { data: recipes = [] } = useGetRecipesByCategory(selectedCategory);
+  const { data: rawMaterials = [] } = useGetAllRawMaterials();
   const calculateMutation = useCalculateProduction();
 
   // Create a map of raw material ID to raw material data
   const rawMaterialsMap = new Map(
-    rawMaterials?.map(rm => [rm.id.toString(), rm]) || []
+    rawMaterials.map(rm => [rm.id.toString(), rm])
   );
 
   const convertUnit = (quantity: number, unit: string): { value: string; unit: string } => {
@@ -96,7 +96,7 @@ export default function ProductionCalculator({ onCalculationComplete }: Producti
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories?.map((cat) => (
+                  {categories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
                     </SelectItem>
@@ -119,7 +119,7 @@ export default function ProductionCalculator({ onCalculationComplete }: Producti
                   <SelectValue placeholder="Select recipe" />
                 </SelectTrigger>
                 <SelectContent>
-                  {recipes?.map((recipeName) => (
+                  {recipes.map((recipeName) => (
                     <SelectItem key={recipeName} value={recipeName}>
                       {recipeName}
                     </SelectItem>

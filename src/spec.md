@@ -1,11 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the Internet Identity login failure caused by a stopped backend canister (IC0408 error).
+**Goal:** Fix service unavailable and connection errors in the live deployment by adding robust error handling, retry logic, and health monitoring.
 
 **Planned changes:**
-- Diagnose and restart the stopped backend canister ohbdn-3yaaa-aaaah-a46oa-cai
-- Verify canister configuration to ensure it accepts Internet Identity authentication requests
-- Confirm setupAdmin endpoint is accessible after canister restart
+- Add comprehensive error handling and retry logic with exponential backoff to all backend query hooks
+- Enhance the useBackendHealth hook to detect and display connection errors prominently with recovery status
+- Add a global error boundary component that catches authentication and connection errors during initial app load
+- Add a health check endpoint in the backend that returns canister status without requiring authentication
 
-**User-visible outcome:** Users can successfully log in with Internet Identity without encountering canister stopped errors, and the application loads properly after authentication.
+**User-visible outcome:** Users will see informative error messages when the service is temporarily unavailable, automatic recovery when the backend becomes available, and clear instructions on what to do during outages. The application will gracefully handle connection failures and canister stopped errors with automatic retries.

@@ -1,6 +1,75 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix Internet Identity canister stopped error on login",
-  "requirements": []
+  "title": "Fix live deployment service unavailable and connection errors",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "summary": "Add comprehensive error handling and retry logic to all backend query hooks to gracefully handle canister stopped errors (IC0408) and connection failures with exponential backoff",
+      "acceptanceCriteria": [
+        "All useQuery hooks implement automatic retry with exponential backoff for network and canister errors",
+        "User sees informative error messages when backend is temporarily unavailable",
+        "Queries automatically recover and refetch when backend becomes available"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Enhance all TanStack Query hooks with comprehensive retry configuration including exponential backoff (retry delays: 1s, 2s, 4s, 8s, 16s), specialized error detection for IC0408 canister stopped errors and network failures, and user-friendly error messages that distinguish between temporary unavailability and permanent failures. Add query retry logic that respects backend health status from useBackendHealth."
+        },
+        {
+          "path": "frontend/src/utils/errorHandling.ts",
+          "operation": "create",
+          "description": "Create error utility module with functions to detect canister stopped errors (IC0408), network timeouts, connection failures, and other ICP-specific error patterns. Include exponential backoff calculator, error message formatter that provides user-friendly text for different error types, and error classification logic to determine retry eligibility."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Enhance the useBackendHealth hook to detect and display connection errors more prominently, showing recovery status to users when the service becomes available again",
+      "acceptanceCriteria": [
+        "Health check hook detects all types of connection failures (network errors, canister stopped, timeouts)",
+        "Users see a clear banner or notification when service is unavailable",
+        "Success message appears when connection is restored"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useBackendHealth.ts",
+          "operation": "modify",
+          "description": "Enhance health monitoring to detect all connection failure types including network errors, canister stopped states, and timeouts. Add state tracking for previous health status to detect recovery transitions. Implement retry logic with exponential backoff for health checks. Add toast notifications or return connection state that components can use to display recovery messages."
+        },
+        {
+          "path": "frontend/src/components/ConnectionStatusBanner.tsx",
+          "operation": "create",
+          "description": "Create a banner component that subscribes to backend health status from useBackendHealth hook and displays prominent alerts when service is unavailable. Show loading state during connection attempts, error message with retry countdown during outages, and success message with auto-dismiss when connection is restored. Position banner at top of viewport with appropriate z-index."
+        },
+        {
+          "path": "frontend/src/components/Layout.tsx",
+          "operation": "modify",
+          "description": "Integrate ConnectionStatusBanner component into the Layout component, positioning it prominently below the header to ensure visibility across all pages when connection issues occur."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Add a global error boundary component that catches authentication and connection errors during initial app load, displaying user-friendly recovery instructions",
+      "acceptanceCriteria": [
+        "Error boundary catches all unhandled errors during app initialization",
+        "Users see clear instructions on what to do when service is unavailable",
+        "Error boundary provides a manual retry button"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/ErrorBoundary.tsx",
+          "operation": "create",
+          "description": "Create React error boundary component that catches unhandled errors during app initialization and runtime. Display user-friendly error UI with specific messaging for authentication failures, canister unavailability, network errors, and generic errors. Include manual retry button that resets error state and attempts to reload the app. Use error classification utilities from frontend/src/utils/errorHandling.ts to provide contextual recovery instructions."
+        },
+        {
+          "path": "frontend/src/main.tsx",
+          "operation": "modify",
+          "description": "Wrap the entire app with ErrorBoundary component to catch all unhandled errors during initialization and runtime, ensuring users see recovery UI instead of blank screens when critical failures occur."
+        }
+      ]
+    }
+  ]
 }

@@ -57,6 +57,7 @@ export const idlService = IDL.Service({
       ],
       ['query'],
     ),
+  'checkHealth' : IDL.Func([], [IDL.Bool], ['query']),
   'deleteRawMaterial' : IDL.Func([IDL.Nat], [], []),
   'editRawMaterial' : IDL.Func(
       [IDL.Nat, IDL.Text, IDL.Text, IDL.Float64],
@@ -135,6 +136,7 @@ export const idlFactory = ({ IDL }) => {
         ],
         ['query'],
       ),
+    'checkHealth' : IDL.Func([], [IDL.Bool], ['query']),
     'deleteRawMaterial' : IDL.Func([IDL.Nat], [], []),
     'editRawMaterial' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Text, IDL.Float64],

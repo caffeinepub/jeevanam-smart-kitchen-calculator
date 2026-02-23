@@ -1,25 +1,58 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-23T16:39:48.030Z",
+  "generatedAt": "2026-02-23T18:26:25.838Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 2,
-    "implemented": 0,
+    "total": 4,
+    "implemented": 3,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Fix the canister stopped error (IC0408) occurring during Internet Identity login that shows 'The replica returned a rejection error: Reject code: 5, Reject text: Canister ohbdn-3yaaa-aaaah-a46oa-cai is stopped'",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "summary": "Add comprehensive error handling and retry logic to all backend query hooks to gracefully handle canister stopped errors (IC0408) and connection failures with exponential backoff",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/utils/errorHandling.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/utils/errorHandling.ts"
+        ]
       },
       {
         "id": "REQ-2",
-        "summary": "Ensure the backend canister ohbdn-3yaaa-aaaah-a46oa-cai is running and properly configured to accept requests from the Internet Identity authentication flow",
+        "summary": "Enhance the useBackendHealth hook to detect and display connection errors more prominently, showing recovery status to users when the service becomes available again",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useBackendHealth.ts",
+          "frontend/src/components/ConnectionStatusBanner.tsx",
+          "frontend/src/components/Layout.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useBackendHealth.ts",
+          "frontend/src/components/ConnectionStatusBanner.tsx",
+          "frontend/src/components/Layout.tsx"
+        ]
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Add a global error boundary component that catches authentication and connection errors during initial app load, displaying user-friendly recovery instructions",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/ErrorBoundary.tsx",
+          "frontend/src/main.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/ErrorBoundary.tsx"
+        ]
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Verify backend canister configuration and add health check endpoint in main.mo that returns canister status to help diagnose service availability issues",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
@@ -27,13 +60,24 @@
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
+    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
     "frontend/src/backend.d.ts",
     "frontend/src/backend.ts",
+    "frontend/src/components/ConnectionStatusBanner.tsx",
+    "frontend/src/components/ErrorBoundary.tsx",
+    "frontend/src/components/Layout.tsx",
+    "frontend/src/components/ProductionCalculator.tsx",
+    "frontend/src/components/RawMaterialTable.tsx",
     "frontend/src/declarations/backend.did.d.ts",
     "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useBackendHealth.ts",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/Login.tsx",
+    "frontend/src/utils/errorHandling.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

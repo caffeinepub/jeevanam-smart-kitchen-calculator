@@ -44,6 +44,7 @@ export interface _SERVICE {
     [string, number],
     { 'totalPortionWeight' : number, 'ingredients' : Array<Ingredient> }
   >,
+  'checkHealth' : ActorMethod<[], boolean>,
   'deleteRawMaterial' : ActorMethod<[bigint], undefined>,
   'editRawMaterial' : ActorMethod<[bigint, string, string, number], undefined>,
   'getAllCategories' : ActorMethod<[], Array<string>>,
