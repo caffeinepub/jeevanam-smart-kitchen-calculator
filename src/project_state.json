@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "New project",
+  "architectural_notes": [],
+  "known_issues": [
+    "Raw material addition shows 'Admin not set up yet' error"
+  ],
+  "isFixRequest": true,
+  "existing_features": [],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Fix the backend authentication check so that addRawMaterial, updateRawMaterial, and deleteRawMaterial functions properly recognize the authenticated admin principal instead of throwing 'Admin not set up yet' error",
+      "reqIds": [
+        "REQ-46"
+      ],
+      "status": "pending"
+    }
+  ],
+  "projectName": "Fix admin authentication for raw material operations",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

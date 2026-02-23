@@ -1,0 +1,22 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-23T11:34:31.427Z",
+  "summary": "The diff shows modifications to backend/main.mo and project_state.json, but the actual implementation changes to fix the raw material authentication issue are not visible due to truncation. The project_state.json correctly tracks the feature request, but without seeing the complete backend code changes (specifically the addRawMaterial, updateRawMaterial, and deleteRawMaterial functions), I cannot verify whether REQ-46 was properly implemented.",
+  "missing_requirements": [
+    {
+      "id": "REQ-46",
+      "requirement": "Fix the backend authentication check so that addRawMaterial, updateRawMaterial, and deleteRawMaterial functions properly recognize the authenticated admin principal",
+      "reason": "The diff for backend/main.mo is truncated and does not show the implementation of addRawMaterial, updateRawMaterial, or deleteRawMaterial functions. The visible code shows verifyAdmin function and other admin-protected functions (addRecipe, setIngredientCost, updateIngredientCost), but the actual raw material CRUD operations mentioned in the requirement are not visible in the provided diff.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    }
+  ],
+  "hallucinated_features": [],
+  "confidence": 0.4,
+  "changed_files": [
+    "backend/main.mo",
+    "project_state.json"
+  ]
+}

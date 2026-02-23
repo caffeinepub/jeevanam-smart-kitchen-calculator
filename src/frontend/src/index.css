@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --radius: 0.625rem;
+        /* Warm cream background */
+        --background: 0.97 0.015 60;
+        --foreground: 0.35 0.08 35;
+        /* Warm card colors */
+        --card: 1 0 0;
+        --card-foreground: 0.35 0.08 35;
+        --popover: 1 0 0;
+        --popover-foreground: 0.35 0.08 35;
+        /* Terracotta primary */
+        --primary: 0.62 0.15 35;
+        --primary-foreground: 1 0 0;
+        /* Sage green secondary */
+        --secondary: 0.65 0.12 140;
+        --secondary-foreground: 1 0 0;
+        /* Muted warm tones */
+        --muted: 0.92 0.02 60;
+        --muted-foreground: 0.50 0.05 35;
+        /* Accent sage */
+        --accent: 0.65 0.12 140;
+        --accent-foreground: 1 0 0;
+        /* Warm destructive */
+        --destructive: 0.577 0.245 27.325;
+        --destructive-foreground: 1 0 0;
+        /* Borders */
+        --border: 0.88 0.03 60;
+        --input: 0.88 0.03 60;
+        --ring: 0.62 0.15 35;
+        /* Chart colors - warm palette */
+        --chart-1: 0.62 0.15 35;
+        --chart-2: 0.65 0.12 140;
+        --chart-3: 0.70 0.18 50;
+        --chart-4: 0.55 0.18 30;
+        --chart-5: 0.60 0.10 150;
+    }
+
+    .dark {
+        --background: 0.25 0.05 35;
+        --foreground: 0.95 0.02 60;
+        --card: 0.30 0.06 35;
+        --card-foreground: 0.95 0.02 60;
+        --popover: 0.30 0.06 35;
+        --popover-foreground: 0.95 0.02 60;
+        --primary: 0.70 0.18 35;
+        --primary-foreground: 0.20 0.05 35;
+        --secondary: 0.70 0.14 140;
+        --secondary-foreground: 0.20 0.05 35;
+        --muted: 0.35 0.06 35;
+        --muted-foreground: 0.70 0.08 60;
+        --accent: 0.70 0.14 140;
+        --accent-foreground: 0.95 0.02 60;
+        --destructive: 0.60 0.22 27;
+        --destructive-foreground: 0.95 0.02 60;
+        --border: 0.40 0.06 35;
+        --input: 0.40 0.06 35;
+        --ring: 0.70 0.18 35;
+        --chart-1: 0.70 0.18 35;
+        --chart-2: 0.70 0.14 140;
+        --chart-3: 0.75 0.20 50;
+        --chart-4: 0.65 0.20 30;
+        --chart-5: 0.65 0.12 150;
+    }
+
+    * {
+        @apply border-border;
+    }
+    
+    body {
+        @apply bg-background text-foreground;
+        font-feature-settings: "rlig" 1, "calt" 1;
+    }
+
+    /* Ensure minimum touch target size for mobile */
+    button, a, input, select, textarea {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Print styles for store issue slip */
+    @media print {
+        body {
+            @apply bg-white;
+        }
+        
+        header, footer, nav, .print\\:hidden {
+            display: none !important;
+        }
+        
+        .print\\:block {
+            display: block !important;
+        }
+        
+        * {
+            box-shadow: none !important;
+        }
+    }
+}

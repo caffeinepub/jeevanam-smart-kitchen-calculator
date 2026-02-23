@@ -1,0 +1,38 @@
+{
+  "kind": "build_request",
+  "title": "Fix admin authentication for raw material operations",
+  "priority": "high",
+  "requirements": [
+    {
+      "id": "REQ-46",
+      "text": "Fix the backend authentication check so that addRawMaterial, updateRawMaterial, and deleteRawMaterial functions properly recognize the authenticated admin principal instead of throwing 'Admin not set up yet' error",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-user-admin-error"
+        ],
+        "quotes": [
+          "when i try to add Raw material  it shows \"Admin not set up yet\""
+        ]
+      },
+      "acceptanceCriteria": [
+        "Admin can successfully add new raw materials without encountering 'Admin not set up yet' error",
+        "Admin authentication check correctly validates the logged-in Internet Identity principal",
+        "Raw material CRUD operations (add, update, delete) work properly for authenticated users"
+      ]
+    }
+  ],
+  "constraints": [
+    "Preserve the existing principal-based admin authentication pattern",
+    "Do not modify the Internet Identity authentication flow in the frontend"
+  ],
+  "nonGoals": [
+    "Changing the overall authentication system",
+    "Adding multi-admin support",
+    "Modifying the raw material data model"
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}
